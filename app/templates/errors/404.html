@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block title %}Page Not Found - Adaptive Login Security System{% endblock %}
+
+{% block content %}
+<div class="error-container">
+    <div class="error-icon">
+        <i class="fas fa-exclamation-triangle"></i>
+    </div>
+    <h1 class="error-code">404</h1>
+    <h2 class="error-title">Page Not Found</h2>
+    <p class="error-message">
+        The page you are looking for does not exist or may have been moved.
+    </p>
+    <p class="error-details">
+        <strong>Requested URL:</strong> {{ path }}
+    </p>
+    <div class="error-actions">
+        <a href="/" class="btn btn-primary">
+            <i class="fas fa-home"></i> Go Home
+        </a>
+        <button onclick="goBack()" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Go Back
+        </button>
+    </div>
+</div>
+
+<style>
+.error-container {
+    max-width: 550px;
+    margin: 6rem auto;
+    padding: 3rem;
+    text-align: center;
+    background-color: white;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-md);
+}
+
+.error-icon {
+    font-size: 4rem;
+    color: var(--warning);
+    margin-bottom: 1.5rem;
+}
+
+.error-code {
+    font-size: 6rem;
+    margin: 0;
+    font-weight: 800;
+    color: var(--primary);
+    line-height: 1;
+}
+
+.error-title {
+    font-size: 2rem;
+    margin-top: 1rem;
+    margin-bottom: 1.5rem;
+    color: var(--gray-800);
+}
+
+.error-message {
+    font-size: 1.2rem;
+    color: var(--gray-600);
+    margin-bottom: 1rem;
+}
+
+.error-details {
+    color: var(--gray-500);
+    margin-bottom: 2rem;
+    font-size: 0.95rem;
+}
+
+.error-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+}
+
+.btn {
+    padding: 0.75rem 1.5rem;
+    border-radius: var(--border-radius);
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    transition: var(--transition);
+    text-decoration: none;
+}
+
+.btn-primary {
+    background-color: var(--primary);
+    color: white;
+    border: none;
+}
+
+.btn-primary:hover {
+    background-color: var(--primary-darker);
+}
+
+.btn-secondary {
+    background-color: white;
+    color: var(--gray-700);
+    border: 1px solid var(--gray-300);
+}
+
+.btn-secondary:hover {
+    background-color: var(--gray-100);
+}
+</style>
+
+<script>
+function goBack() {
+    window.history.back();
+}
+</script>
+{% endblock %} 

@@ -32,7 +32,7 @@ router = APIRouter(tags=["authentication"], prefix="/auth")
 
 templates = Jinja2Templates(directory="app/templates")
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
 
 # Helper functions
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
@@ -42,6 +42,10 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    
+    # Handle case when token is None
+    if token is None:
+        raise credentials_exception
     
     from app.core.security import verify_token
     
@@ -176,6 +180,11 @@ async def login(
     redirect: str = Form(None)
 ):
     """Handle the login form submission"""
+    
+    # Debug info
+    print(f"DEBUG: Login attempt for: {email}")
+    print(f"DEBUG: Redirect parameter: {redirect}")
+    
     # Find the user
     user = db.query(User).filter(User.email == email).first()
     
@@ -307,8 +316,9 @@ async def login(
     token, session = create_session(db, user, request)
     
     # Store token in cookies or session
-    # Check if there's a redirect URL (for admin login)
+    # Check if there's a redirect URL
     redirect_url = redirect if redirect else "/"
+    print(f"DEBUG: Redirecting to: {redirect_url}")
     response = RedirectResponse(url=redirect_url, status_code=status.HTTP_303_SEE_OTHER)
     response.set_cookie(key="access_token", value=f"Bearer {token}", httponly=True)
     

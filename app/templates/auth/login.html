@@ -102,8 +102,8 @@
     transform: rotate(30deg);
 }
 
-{% if is_admin_login %}
-.auth-card {
+/* Admin login specific styles */
+.admin-auth-card {
     border-top: 4px solid #4F46E5;
 }
 
@@ -119,13 +119,12 @@
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }
-{% endif %}
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="auth-container">
-    <div class="auth-card">
+    <div class="auth-card {% if is_admin_login %}admin-auth-card{% endif %}">
         <div class="auth-header">
             {% if is_admin_login %}
             <span class="admin-login-badge">Admin Area</span>

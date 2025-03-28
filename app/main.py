@@ -19,10 +19,7 @@ from app.database.database import engine, Base
 from app.database.init_db import init_db
 
 # Import routers
-from app.routers.auth import router as auth_router
-from app.routers.users import router as users_router
-from app.routers.security import router as security_router
-from app.routers.admin import router as admin_router
+from app.routers import auth, users, security, admin
 
 # Load environment variables
 load_dotenv()
@@ -109,28 +106,28 @@ app.mount("/static", StaticFiles(directory="app/static"), name="static")
 # Templates
 templates = Jinja2Templates(directory="app/templates")
 
-# Include routers
-app.include_router(auth_router)
-app.include_router(users_router)
-app.include_router(security_router)
+# Include regular routers
+app.include_router(auth)
+app.include_router(users)
+app.include_router(security)
 
-# Admin routes are handled separately to allow for the login intercept
-# Admin login intercept
+# Admin route
 @app.get("/admin", response_class=HTMLResponse)
 @app.get("/admin/", response_class=HTMLResponse)
-async def admin_login_intercept(request: Request, db: Session = Depends(get_db)):
-    """Intercept requests to /admin and redirect non-authenticated users to admin login"""
+async def admin_route(request: Request, db: Session = Depends(get_db)):
+    """Handle requests to /admin and show proper login page or dashboard"""
     from app.models.user import User
+    
+    print(f"DEBUG: Admin route accessed: {request.url.path}")
     
     # Check if user is authenticated
     if not hasattr(request, "user") or not request.user.is_authenticated:
         # User is not authenticated, render admin login page
+        print("DEBUG: User not authenticated, showing admin login")
         return templates.TemplateResponse(
-            "auth/login.html",
+            "admin/login.html",
             {
-                "request": request,
-                "is_admin_login": True,
-                "admin_redirect": True
+                "request": request
             }
         )
     
@@ -141,21 +138,21 @@ async def admin_login_intercept(request: Request, db: Session = Depends(get_db))
     # Check if user is admin
     if not user or not user.is_superuser:
         # User is authenticated but not an admin
+        print(f"DEBUG: User {user_email} is not an admin")
         return templates.TemplateResponse(
-            "auth/login.html",
+            "admin/login.html",
             {
                 "request": request,
-                "is_admin_login": True,
-                "admin_redirect": True,
                 "error": "This area is restricted to administrators only."
             }
         )
     
     # For authenticated admin users, redirect to admin dashboard
+    print(f"DEBUG: Admin user {user_email} authenticated, redirecting to dashboard")
     return RedirectResponse(url="/admin/dashboard", status_code=status.HTTP_303_SEE_OTHER)
 
 # Include admin router
-app.include_router(admin_router, prefix="/admin")
+app.include_router(admin, prefix="/admin")
 
 @app.get("/", response_class=HTMLResponse)
 @app.head("/")
@@ -190,17 +187,39 @@ async def startup_event():
 @app.exception_handler(404)
 async def custom_404_handler(request: Request, exc):
     """Handle 404 errors gracefully"""
+    print(f"DEBUG: 404 error for path: {request.url.path}")
+    
+    # Special handling for admin routes
     if request.url.path.startswith("/admin"):
+        print(f"DEBUG: Admin 404 for path: {request.url.path}")
+        
+        # Special case for the dashboard - if it's a 404, we show the login page
+        # This handles the case where an unauthenticated user tries to access the dashboard directly
+        if request.url.path == "/admin/dashboard":
+            print("DEBUG: Unauthenticated access to dashboard, showing admin login")
+            return templates.TemplateResponse(
+                "admin/login.html",
+                {
+                    "request": request,
+                    "error": "Please log in to access the admin dashboard."
+                }
+            )
+        
         # For admin routes, redirect to admin login
+        if request.url.path == "/admin" or request.url.path == "/admin/":
+            print("DEBUG: Redirecting to admin handler")
+            return RedirectResponse(url="/admin", status_code=status.HTTP_307_TEMPORARY_REDIRECT)
+        
+        # For other admin routes, show login with error message
         return templates.TemplateResponse(
-            "auth/login.html",
+            "admin/login.html",
             {
                 "request": request,
-                "is_admin_login": True,
-                "admin_redirect": True,
-                "error": "The requested admin page was not found."
+                "error": f"The requested admin page was not found: {request.url.path}"
             }
         )
+        
+    # For non-admin routes, show 404 page
     return templates.TemplateResponse(
         "errors/404.html", 
         {

@@ -24,13 +24,22 @@ templates = Jinja2Templates(directory="app/templates")
 # Admin-only dependency
 def get_admin_user(request: Request, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Check if the current user is an admin"""
+    print(f"DEBUG: Admin access check for user: {current_user.email}")
+    
+    # Log the auth scopes if available
+    if hasattr(request, "auth"):
+        print(f"DEBUG: Auth scopes: {request.auth.scopes}")
+    
     # Verify from database to be absolutely sure
     user = db.query(User).filter(User.email == current_user.email).first()
     if not user or not user.is_superuser:
+        print(f"DEBUG: Access denied - user {current_user.email} is not an admin")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to access admin area"
         )
+    
+    print(f"DEBUG: Admin access granted to {user.email}")
     return user
 
 # Admin dashboard
