@@ -3,18 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="description" content="Adaptive Login Security System - Advanced security for your applications">
     <meta name="theme-color" content="#4f46e5">
     <title>{% block title %}Adaptive Login Security System{% endblock %}</title>
     <!-- Inter Font -->
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap">
     <!-- Font Awesome Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Custom Styles -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <!-- Base Styles -->
     <link rel="stylesheet" href="{{ url_for('static', path='css/styles.css') }}">
+    <!-- Extra CSS Block -->
     {% block extra_css %}{% endblock %}
 </head>
-<body>
+<body class="{{ body_class }}">
     <header>
         <nav>
             <div class="nav-brand">
@@ -44,6 +46,10 @@
         <p>&copy; 2024 Adaptive Login Security System | <a href="/privacy">Privacy</a> | <a href="/terms">Terms</a></p>
     </footer>
     
+    <!-- Load Chart.js globally -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js" integrity="sha384-9OPU+EeQK+d9CxXHxVrvsX11kx+haZNTEGDCp1GH1V1rliqKl9tHNci6CUu2MGtO" crossorigin="anonymous"></script>
+    
+    <!-- Scripts Block -->
     {% block scripts %}{% endblock %}
 </body>
 </html> 

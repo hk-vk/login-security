@@ -16,37 +16,55 @@
 
 /* Reset admin-specific elements */
 .admin-container * {
-  box-sizing: border-box;
+  box-sizing: border-box !important;
+  margin: 0;
+  padding: 0;
+}
+
+/* Fix to override any global styles */
+body.admin-view {
+  overflow-x: hidden;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+body.admin-view main {
+  max-width: 100% !important;
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Hide default header and footer in admin view */
+body.admin-view > header,
+body.admin-view > footer {
+  display: none !important;
 }
 
 /* Base Admin Layout */
 .admin-container {
-  display: flex;
-  min-height: 100vh;
-  max-width: 100%;
-  width: 100%;
-  margin: 0;
-  padding: 0;
-  background-color: var(--background);
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  overflow-x: hidden;
+  display: flex !important;
+  min-height: 100vh !important;
+  height: 100vh !important;
+  max-width: 100% !important;
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background-color: var(--background) !important;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  overflow: auto !important;
+  z-index: 1000 !important;
 }
 
-/* Hide default header and footer when in admin mode */
-.admin-container ~ header,
-.admin-container ~ footer {
-  display: none;
-}
-
-/* Ensure main content takes up full width */
+/* Admin Container main */
 .admin-container main {
-  max-width: 100%;
-  padding: 0;
-  margin: 0;
+  max-width: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
 }
 
 .admin-sidebar {

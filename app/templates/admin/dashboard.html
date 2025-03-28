@@ -11,14 +11,39 @@ body {
     overflow-x: hidden;
 }
 main {
-    max-width: 100%;
-    margin: 0;
-    padding: 0;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+/* Debug info */
+.debug-section {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(0,0,0,0.8);
+    color: #fff;
+    padding: 10px;
+    font-family: monospace;
+    z-index: 10000;
+    max-height: 200px;
+    overflow: auto;
 }
 </style>
 {% endblock %}
 
 {% block content %}
+<!-- Debug info visible during development -->
+<div class="debug-section">
+    <h4>Debug Info (Remove in production)</h4>
+    <p>User: {{ user }}</p>
+    <p>Stats: {{ stats }}</p>
+    <p>Security Metrics: {{ security_metrics }}</p>
+    <p>System Status: {{ system_status }}</p>
+    <p>Activities Count: {% if recent_activities %}{{ recent_activities|length }}{% else %}0{% endif %}</p>
+    <p>Alerts Count: {% if critical_alerts %}{{ critical_alerts|length }}{% else %}0{% endif %}</p>
+</div>
+
 <div class="admin-container">
     <div class="admin-sidebar">
         <div class="sidebar-header">
@@ -53,7 +78,7 @@ main {
         <div class="admin-header">
             <h2>Security Dashboard</h2>
             <div class="header-actions">
-                <div class="alert-indicator {{ 'alert-active' if stats and stats.critical_events > 0 else '' }}">
+                <div class="alert-indicator {% if stats and stats.critical_events > 0 %}alert-active{% endif %}">
                     <i class="fas fa-bell"></i>
                     <span class="alert-count">{{ stats.critical_events if stats else 0 }}</span>
                 </div>
@@ -72,20 +97,13 @@ main {
         </div>
 
         <!-- System Status Banner -->
-        {% if system_status %}
-        <div class="system-status {{ system_status.level }}">
-            <i class="fas fa-{{ 'check-circle' if system_status.level == 'normal' else 'exclamation-triangle' }}"></i>
-            <span>System Status: {{ system_status.message }}</span>
-            {% if system_status.level != 'normal' %}
+        <div class="system-status {% if system_status %}{{ system_status.level }}{% else %}normal{% endif %}">
+            <i class="fas fa-{% if system_status and system_status.level != 'normal' %}exclamation-triangle{% else %}check-circle{% endif %}"></i>
+            <span>System Status: {% if system_status %}{{ system_status.message }}{% else %}All systems operational{% endif %}</span>
+            {% if system_status and system_status.level != 'normal' %}
             <button class="btn-small" onclick="showSystemDetails()">View Details</button>
             {% endif %}
         </div>
-        {% else %}
-        <div class="system-status normal">
-            <i class="fas fa-check-circle"></i>
-            <span>System Status: All systems operational</span>
-        </div>
-        {% endif %}
 
         <!-- Key Metrics Overview -->
         <div class="stats-grid">
@@ -142,7 +160,7 @@ main {
             </div>
             
             <div class="security-grid">
-                <div class="security-card {{ 'alert' if security_metrics and security_metrics.login_failure_rate > 20 else '' }}">
+                <div class="security-card {% if security_metrics and security_metrics.login_failure_rate > 20 %}alert{% endif %}">
                     <h4>Login Failure Rate</h4>
                     <div class="metric-circle">
                         <span>{{ security_metrics.login_failure_rate if security_metrics else 0 }}%</span>
@@ -150,7 +168,7 @@ main {
                     <p>Compared to 5% benchmark</p>
                 </div>
                 
-                <div class="security-card {{ 'alert' if security_metrics and security_metrics.blocked_ips > 10 else '' }}">
+                <div class="security-card {% if security_metrics and security_metrics.blocked_ips > 10 %}alert{% endif %}">
                     <h4>Blocked IPs</h4>
                     <div class="metric-value">
                         <i class="fas fa-ban"></i>
@@ -159,7 +177,7 @@ main {
                     <p>{{ security_metrics.recent_blocks if security_metrics else 0 }} in last 24h</p>
                 </div>
                 
-                <div class="security-card {{ 'alert' if security_metrics and security_metrics.mfa_adoption < 70 else '' }}">
+                <div class="security-card {% if security_metrics and security_metrics.mfa_adoption < 70 %}alert{% endif %}">
                     <h4>MFA Adoption</h4>
                     <div class="metric-circle">
                         <span>{{ security_metrics.mfa_adoption if security_metrics else 0 }}%</span>
@@ -167,7 +185,7 @@ main {
                     <p>Target: 90%</p>
                 </div>
                 
-                <div class="security-card {{ 'alert' if security_metrics and security_metrics.compliance_score < 80 else '' }}">
+                <div class="security-card {% if security_metrics and security_metrics.compliance_score < 80 %}alert{% endif %}">
                     <h4>Compliance Score</h4>
                     <div class="metric-circle">
                         <span>{{ security_metrics.compliance_score if security_metrics else 0 }}</span>
@@ -177,7 +195,7 @@ main {
             </div>
         </div>
 
-        <!-- Real-time Monitoring -->
+        <!-- Charts placeholder - will be initialized by JavaScript -->
         <div class="charts-row">
             <div class="chart-card">
                 <h3>User Activity Trends</h3>
@@ -190,96 +208,6 @@ main {
                 <h3>Security Incidents</h3>
                 <div class="chart-container">
                     <canvas id="securityChart"></canvas>
-                </div>
-            </div>
-        </div>
-
-        <div class="charts-row">
-            <div class="chart-card">
-                <h3>Geographic Login Distribution</h3>
-                <div class="chart-container">
-                    <canvas id="geoChart"></canvas>
-                </div>
-            </div>
-
-            <div class="chart-card">
-                <h3>System Resource Usage</h3>
-                <div class="chart-container">
-                    <canvas id="resourceChart"></canvas>
-                </div>
-            </div>
-        </div>
-
-        <!-- Critical Alerts -->
-        <div class="dashboard-section">
-            <div class="section-header">
-                <h3><i class="fas fa-exclamation-circle"></i> Critical Alerts</h3>
-                <button class="btn-small" onclick="acknowledgeAllAlerts()">Acknowledge All</button>
-            </div>
-            
-            <div class="alerts-container {{ 'empty' if not critical_alerts }}">
-                {% if critical_alerts %}
-                    {% for alert in critical_alerts %}
-                    <div class="alert-card {{ alert.severity }}">
-                        <div class="alert-header">
-                            <i class="fas fa-{{ alert.icon }}"></i>
-                            <h4>{{ alert.title }}</h4>
-                            <span class="alert-time">{{ alert.time }}</span>
-                        </div>
-                        <p class="alert-message">{{ alert.message }}</p>
-                        <div class="alert-actions">
-                            <button class="btn-small" onclick="viewAlertDetails('{{ alert.id }}')">Details</button>
-                            <button class="btn-small" onclick="acknowledgeAlert('{{ alert.id }}')">Acknowledge</button>
-                        </div>
-                    </div>
-                    {% endfor %}
-                {% else %}
-                    <div class="no-alerts">
-                        <i class="fas fa-check-circle"></i>
-                        <p>No critical alerts at this time.</p>
-                    </div>
-                {% endif %}
-            </div>
-        </div>
-
-        <!-- Recent Activity -->
-        <div class="dashboard-section">
-            <div class="section-header">
-                <h3><i class="fas fa-history"></i> Recent Activity</h3>
-                <button class="btn-small" onclick="location.href='/admin/logs'">View All Logs</button>
-            </div>
-            
-            <div class="recent-activity">
-                <div class="activity-list">
-                    {% if recent_activities %}
-                    {% for activity in recent_activities %}
-                    <div class="activity-item">
-                        <div class="activity-icon {{ activity.type }}">
-                            <i class="fas fa-{{ activity.icon }}"></i>
-                        </div>
-                        <div class="activity-details">
-                            <p class="activity-text">{{ activity.description }}</p>
-                            <p class="activity-time">{{ activity.timestamp }}</p>
-                        </div>
-                        <div class="activity-status {{ activity.status }}">
-                            {{ activity.status }}
-                        </div>
-                    </div>
-                    {% endfor %}
-                    {% else %}
-                    <div class="activity-item">
-                        <div class="activity-icon">
-                            <i class="fas fa-info-circle"></i>
-                        </div>
-                        <div class="activity-details">
-                            <p class="activity-text">No recent activity to display</p>
-                            <p class="activity-time">-</p>
-                        </div>
-                        <div class="activity-status">
-                            info
-                        </div>
-                    </div>
-                    {% endif %}
                 </div>
             </div>
         </div>
@@ -303,379 +231,126 @@ main {
                     <i class="fas fa-database"></i>
                     <span>Create Backup</span>
                 </button>
-                <button class="action-button" onclick="generateReport()">
-                    <i class="fas fa-file-alt"></i>
-                    <span>Generate Report</span>
-                </button>
                 <button class="action-button" onclick="location.href='/admin/settings'">
                     <i class="fas fa-cogs"></i>
                     <span>Security Policies</span>
                 </button>
-                <button class="action-button" onclick="invalidateSessions()">
-                    <i class="fas fa-user-slash"></i>
-                    <span>Invalidate Sessions</span>
-                </button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Modals -->
-<div id="alertModal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h3 id="modalTitle">Alert Details</h3>
-            <span class="close-modal" onclick="closeModal('alertModal')">&times;</span>
-        </div>
-        <div class="modal-body" id="modalBody">
-            <!-- Alert details will be injected here -->
-        </div>
-        <div class="modal-footer">
-            <button class="btn-primary" onclick="resolveAlert()">Mark as Resolved</button>
-            <button class="btn-secondary" onclick="closeModal('alertModal')">Close</button>
-        </div>
-    </div>
+<!-- Store system data for JavaScript in hidden elements -->
+<div id="dashboard-data" style="display:none;"
+    data-cpu-usage="{{ system_status.cpu_usage if system_status and system_status.cpu_usage else 0 }}"
+    data-memory-usage="{{ system_status.memory_usage if system_status and system_status.memory_usage else 0 }}" 
+    data-disk-usage="{{ system_status.disk_usage if system_status and system_status.disk_usage else 0 }}">
 </div>
+{% endblock %}
 
-<div id="systemDetailsModal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h3>System Status Details</h3>
-            <span class="close-modal" onclick="closeModal('systemDetailsModal')">&times;</span>
-        </div>
-        <div class="modal-body">
-            <div class="system-metrics">
-                <div class="metric-row">
-                    <div class="metric-label">CPU Usage:</div>
-                    <div class="metric-value">{{ system_status.cpu_usage if system_status else 0 }}%</div>
-                    <div class="progress-bar">
-                        <div class="progress" style="width: {{ system_status.cpu_usage if system_status else 0 }}%"></div>
-                    </div>
-                </div>
-                <div class="metric-row">
-                    <div class="metric-label">Memory Usage:</div>
-                    <div class="metric-value">{{ system_status.memory_usage if system_status else 0 }}%</div>
-                    <div class="progress-bar">
-                        <div class="progress" style="width: {{ system_status.memory_usage if system_status else 0 }}%"></div>
-                    </div>
-                </div>
-                <div class="metric-row">
-                    <div class="metric-label">Disk Space:</div>
-                    <div class="metric-value">{{ system_status.disk_usage if system_status else 0 }}%</div>
-                    <div class="progress-bar">
-                        <div class="progress" style="width: {{ system_status.disk_usage if system_status else 0 }}%"></div>
-                    </div>
-                </div>
-                <div class="metric-row">
-                    <div class="metric-label">Database Connections:</div>
-                    <div class="metric-value">{{ system_status.db_connections if system_status and system_status.db_connections else 0 }}/{{ system_status.max_db_connections if system_status and system_status.max_db_connections else 100 }}</div>
-                </div>
-                <div class="metric-row">
-                    <div class="metric-label">API Response Time:</div>
-                    <div class="metric-value">{{ system_status.api_response_time if system_status and system_status.api_response_time else 0 }}ms</div>
-                </div>
-            </div>
-            
-            <div class="system-issues">
-                <h4>Active Issues</h4>
-                {% if system_status.issues %}
-                    <ul class="issues-list">
-                    {% for issue in system_status.issues %}
-                        <li class="{{ issue.severity }}">
-                            <span class="issue-type">{{ issue.type }}</span>
-                            <span class="issue-message">{{ issue.message }}</span>
-                        </li>
-                    {% endfor %}
-                    </ul>
-                {% else %}
-                    <p>No active issues detected.</p>
-                {% endif %}
-            </div>
-        </div>
-        <div class="modal-footer">
-            <button class="btn-primary" onclick="runSystemDiagnostics()">Run Diagnostics</button>
-            <button class="btn-secondary" onclick="closeModal('systemDetailsModal')">Close</button>
-        </div>
-    </div>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% block scripts %}
 <script>
-// Initialize charts with error handling
-function initCharts() {
+document.addEventListener('DOMContentLoaded', function() {
     try {
-        // Make sure all chart canvases exist before initializing
-        const chartElements = [
-            'userActivityChart',
-            'securityChart',
-            'geoChart',
-            'resourceChart'
-        ];
+        console.log("Initializing admin dashboard...");
         
-        // Check if all elements exist
-        for (const id of chartElements) {
-            const element = document.getElementById(id);
-            if (!element) {
-                console.error(`Chart element #${id} not found`);
-                continue;
+        // Initialize charts with error handling
+        function initCharts() {
+            try {
+                // User Activity Chart
+                const userCtx = document.getElementById('userActivityChart');
+                if (userCtx) {
+                    new Chart(userCtx.getContext('2d'), {
+                        type: 'line',
+                        data: {
+                            labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                            datasets: [{
+                                label: 'Active Users',
+                                data: [65, 59, 80, 81, 56, 55, 40],
+                                borderColor: '#3498db',
+                                tension: 0.4,
+                                fill: false
+                            }, {
+                                label: 'Authentication Failures',
+                                data: [10, 15, 8, 12, 17, 14, 9],
+                                borderColor: '#e74c3c',
+                                tension: 0.4,
+                                fill: false
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false
+                        }
+                    });
+                }
+
+                // Security Incidents Chart
+                const securityCtx = document.getElementById('securityChart');
+                if (securityCtx) {
+                    new Chart(securityCtx.getContext('2d'), {
+                        type: 'bar',
+                        data: {
+                            labels: ['Failed Logins', 'Suspicious IPs', 'MFA Failures', 'Password Attempts', 'Brute Force'],
+                            datasets: [{
+                                label: 'Incidents',
+                                data: [12, 19, 3, 5, 8],
+                                backgroundColor: '#e74c3c'
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('Error initializing charts:', error);
             }
         }
-        
-        // User Activity Chart
-        if (document.getElementById('userActivityChart')) {
-            const userCtx = document.getElementById('userActivityChart').getContext('2d');
-            new Chart(userCtx, {
-                type: 'line',
-                data: {
-                    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-                    datasets: [{
-                        label: 'Active Users',
-                        data: [65, 59, 80, 81, 56, 55, 40],
-                        borderColor: '#3498db',
-                        tension: 0.4,
-                        fill: false
-                    }, {
-                        label: 'Authentication Failures',
-                        data: [10, 15, 8, 12, 17, 14, 9],
-                        borderColor: '#e74c3c',
-                        tension: 0.4,
-                        fill: false
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false
-                }
-            });
-        }
 
-        // Security Incidents Chart
-        if (document.getElementById('securityChart')) {
-            const securityCtx = document.getElementById('securityChart').getContext('2d');
-            new Chart(securityCtx, {
-                type: 'bar',
-                data: {
-                    labels: ['Failed Logins', 'Suspicious IPs', 'MFA Failures', 'Password Attempts', 'Brute Force'],
-                    datasets: [{
-                        label: 'Incidents',
-                        data: [12, 19, 3, 5, 8],
-                        backgroundColor: '#e74c3c'
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false
-                }
-            });
-        }
-        
-        // Geographic Chart
-        if (document.getElementById('geoChart')) {
-            const geoCtx = document.getElementById('geoChart').getContext('2d');
-            new Chart(geoCtx, {
-                type: 'pie',
-                data: {
-                    labels: ['North America', 'Europe', 'Asia', 'South America', 'Africa', 'Australia'],
-                    datasets: [{
-                        data: [45, 25, 15, 8, 5, 2],
-                        backgroundColor: [
-                            '#3498db', '#2ecc71', '#f1c40f', '#e67e22', '#e74c3c', '#9b59b6'
-                        ]
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false
-                }
-            });
-        }
-        
-        // System Resources Chart
-        if (document.getElementById('resourceChart')) {
-            const resourceCtx = document.getElementById('resourceChart').getContext('2d');
-            new Chart(resourceCtx, {
-                type: 'line',
-                data: {
-                    labels: ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00', '23:59'],
-                    datasets: [{
-                        label: 'CPU Usage (%)',
-                        data: [35, 40, 60, 75, 65, 70, 45],
-                        borderColor: '#3498db',
-                        tension: 0.4,
-                        fill: false
-                    }, {
-                        label: 'Memory Usage (%)',
-                        data: [50, 55, 65, 70, 75, 70, 60],
-                        borderColor: '#2ecc71',
-                        tension: 0.4,
-                        fill: false
-                    }, {
-                        label: 'Disk I/O (MB/s)',
-                        data: [15, 20, 30, 35, 28, 25, 18],
-                        borderColor: '#f1c40f',
-                        tension: 0.4,
-                        fill: false
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false
-                }
-            });
-        }
+        // Initialize charts when the page loads
+        window.setTimeout(initCharts, 100);
+
+        // Make functions globally available
+        window.refreshStats = function() {
+            console.log('Refreshing stats...');
+            alert('Dashboard data refreshed');
+        };
+
+        window.updateStats = function() {
+            console.log('Updating stats');
+            alert('Dashboard updated');
+        };
+
+        window.showSystemDetails = function() {
+            alert('System details would display here');
+        };
+
+        window.lockdownSystem = function() {
+            if (confirm('WARNING: This will lock all user accounts and invalidate all sessions. Continue?')) {
+                alert('System lockdown initiated');
+            }
+        };
+
+        window.runSecurityScan = function() {
+            alert('Security scan initiated');
+        };
+
+        window.createBackup = function() {
+            alert('System backup initiated');
+        };
+
+        console.log("Admin dashboard initialization complete!");
     } catch (error) {
-        console.error('Error initializing charts:', error);
+        console.error("Fatal error initializing admin dashboard:", error);
+        document.body.innerHTML += `
+            <div style="position:fixed; top:0; left:0; right:0; background:red; color:white; padding:20px; z-index:10000">
+                JavaScript Error: ${error.message}<br>
+                <pre>${error.stack}</pre>
+            </div>
+        `;
     }
-}
-
-// Refresh stats
-function refreshStats() {
-    // Add your refresh logic here
-    console.log('Refreshing stats...');
-    // Show loading indicator
-    document.querySelector('.admin-header').classList.add('loading');
-    // Simulate API call
-    setTimeout(() => {
-        document.querySelector('.admin-header').classList.remove('loading');
-        alert('Dashboard data refreshed');
-    }, 1000);
-}
-
-// Update stats based on time range
-function updateStats() {
-    const timeRange = document.getElementById('timeRange').value;
-    // Add your update logic here
-    console.log('Updating stats for:', timeRange);
-    // Show loading indicator
-    document.querySelector('.admin-header').classList.add('loading');
-    // Simulate API call
-    setTimeout(() => {
-        document.querySelector('.admin-header').classList.remove('loading');
-        alert('Dashboard updated for time range: ' + timeRange);
-    }, 1000);
-}
-
-// View alert details
-function viewAlertDetails(alertId) {
-    // Fetch alert details and show modal
-    console.log('Viewing alert:', alertId);
-    document.getElementById('modalTitle').innerText = 'Alert Details: #' + alertId;
-    document.getElementById('modalBody').innerHTML = `
-        <div class="alert-details">
-            <div class="detail-row">
-                <span class="detail-label">Alert ID:</span>
-                <span class="detail-value">${alertId}</span>
-            </div>
-            <div class="detail-row">
-                <span class="detail-label">Type:</span>
-                <span class="detail-value">Brute Force Attack</span>
-            </div>
-            <div class="detail-row">
-                <span class="detail-label">Time:</span>
-                <span class="detail-value">Today, 14:32:45</span>
-            </div>
-            <div class="detail-row">
-                <span class="detail-label">Source IP:</span>
-                <span class="detail-value">192.168.1.105</span>
-            </div>
-            <div class="detail-row">
-                <span class="detail-label">Target:</span>
-                <span class="detail-value">admin@example.com</span>
-            </div>
-            <div class="detail-row">
-                <span class="detail-label">Description:</span>
-                <span class="detail-value">Multiple failed login attempts detected from same IP address.</span>
-            </div>
-            <div class="detail-row">
-                <span class="detail-label">Recommended Action:</span>
-                <span class="detail-value">Block IP address and force password reset for target account.</span>
-            </div>
-        </div>
-    `;
-    
-    document.getElementById('alertModal').style.display = 'block';
-}
-
-// Acknowledge alert
-function acknowledgeAlert(alertId) {
-    console.log('Acknowledging alert:', alertId);
-    alert('Alert #' + alertId + ' acknowledged');
-}
-
-// Acknowledge all alerts
-function acknowledgeAllAlerts() {
-    console.log('Acknowledging all alerts');
-    alert('All alerts acknowledged');
-    document.querySelector('.alerts-container').innerHTML = `
-        <div class="no-alerts">
-            <i class="fas fa-check-circle"></i>
-            <p>No critical alerts at this time.</p>
-        </div>
-    `;
-    document.querySelector('.alerts-container').classList.add('empty');
-}
-
-// Show system details
-function showSystemDetails() {
-    document.getElementById('systemDetailsModal').style.display = 'block';
-}
-
-// Close modal
-function closeModal(modalId) {
-    document.getElementById(modalId).style.display = 'none';
-}
-
-// Resolve alert
-function resolveAlert() {
-    alert('Alert marked as resolved');
-    closeModal('alertModal');
-}
-
-// Run system diagnostics
-function runSystemDiagnostics() {
-    alert('System diagnostics initiated');
-}
-
-// Quick action: Lockdown system
-function lockdownSystem() {
-    if (confirm('WARNING: This will lock all user accounts and invalidate all sessions. Continue?')) {
-        alert('System lockdown initiated');
-    }
-}
-
-// Quick action: Run security scan
-function runSecurityScan() {
-    alert('Security scan initiated');
-}
-
-// Quick action: Create backup
-function createBackup() {
-    alert('System backup initiated');
-}
-
-// Quick action: Generate report
-function generateReport() {
-    alert('Security report generation initiated');
-}
-
-// Quick action: Invalidate sessions
-function invalidateSessions() {
-    if (confirm('This will invalidate all active user sessions. Continue?')) {
-        alert('All sessions invalidated. Users will need to log in again.');
-    }
-}
-
-// Initialize charts when the page loads
-document.addEventListener('DOMContentLoaded', initCharts);
-
-// Close modals when clicking outside
-window.onclick = function(event) {
-    const modals = document.getElementsByClassName('modal');
-    for (let i = 0; i < modals.length; i++) {
-        if (event.target == modals[i]) {
-            modals[i].style.display = 'none';
-        }
-    }
-}
+});
 </script>
 {% endblock %} 

@@ -49,335 +49,375 @@ async def admin_dashboard(
     db: Session = Depends(get_db)
 ):
     """Display the admin dashboard with security metrics"""
-    # Check if user is authenticated
-    if not hasattr(request, "state") or not hasattr(request.state, "user"):
-        print("DEBUG: User not authenticated for dashboard")
-        return RedirectResponse(url="/admin", status_code=status.HTTP_303_SEE_OTHER)
-    
-    # User is already authenticated and confirmed as admin via the is_admin middleware
-    user = request.state.user
-    
-    print(f"DEBUG: ADMIN ACCESS GRANTED - {user.email}")
-    
-    # Timestamps for calculations
-    now = datetime.utcnow()
-    past_hour = now - timedelta(hours=1)
-    past_day = now - timedelta(days=1)
-    past_week = now - timedelta(days=7)
-    past_month = now - timedelta(days=30)
-    
-    # Total users
-    total_users = db.query(func.count(User.id)).scalar()
-    
-    # Active users
-    active_users = db.query(func.count(User.id)).filter(User.is_active == True).scalar()
-    
-    # New users today
-    new_users_today = db.query(func.count(User.id)).filter(
-        User.created_at > past_day
-    ).scalar() or 0
-    
-    # Login statistics
-    total_login_attempts = db.query(func.count(LoginHistory.id)).filter(
-        LoginHistory.timestamp > past_day
-    ).scalar() or 0
-    
-    failed_login_count = db.query(func.count(LoginHistory.id)).filter(
-        LoginHistory.timestamp > past_day,
-        LoginHistory.success == False
-    ).scalar() or 0
-    
-    successful_login_count = db.query(func.count(LoginHistory.id)).filter(
-        LoginHistory.timestamp > past_day,
-        LoginHistory.success == True
-    ).scalar() or 0
-    
-    # Session statistics
-    active_sessions_count = db.query(func.count(DbSession.id)).filter(
-        DbSession.is_active == True,
-        DbSession.expires_at > now
-    ).scalar() or 0
-    
-    total_sessions = db.query(func.count(DbSession.id)).scalar() or 0
-    
-    # Security metrics
-    security_events = failed_login_count
-    critical_events = db.query(func.count(LoginHistory.id)).filter(
-        LoginHistory.timestamp > past_day,
-        LoginHistory.success == False,
-        LoginHistory.risk_score > 75
-    ).scalar() or 0
-    
-    # Unique IPs for failed logins (potential threat indicators)
-    unique_failed_ip_count = db.query(func.count(func.distinct(LoginHistory.ip_address))).filter(
-        LoginHistory.timestamp > past_day,
-        LoginHistory.success == False
-    ).scalar() or 0
-    
-    # Recent blocked IPs (simulated for the dashboard)
-    recent_blocked_ips = db.query(func.count(LoginHistory.id)).filter(
-        LoginHistory.timestamp > past_day,
-        LoginHistory.success == False,
-        LoginHistory.risk_score > 85
-    ).scalar() or 0
-    
-    # Get MFA enablement percentage
-    mfa_enabled_count = db.query(func.count(User.id)).filter(
-        User.mfa_enabled == True,
-        User.is_active == True
-    ).scalar() or 0
-    
-    mfa_adoption = round((mfa_enabled_count / active_users * 100) if active_users > 0 else 0, 1)
-    
-    # Calculate login failure rate
-    login_failure_rate = round((failed_login_count / total_login_attempts * 100) if total_login_attempts > 0 else 0, 1)
-    
-    # Get security settings (for compliance score calculation)
-    security_settings = db.query(SecuritySettings).first()
-    
-    # Calculate compliance score (simulated based on security settings)
-    compliance_score = 0
-    compliance_issues = 0
-    
-    if security_settings:
-        # Base score starts at 100, deduct for each non-compliant setting
-        compliance_score = 100
+    try:
+        print("DEBUG: Entering admin_dashboard route")
         
-        # Password policy checks
-        if security_settings.password_min_length < 12:
-            compliance_score -= 5
-            compliance_issues += 1
+        # Check if user is authenticated
+        if not hasattr(request, "state") or not hasattr(request.state, "user"):
+            print("DEBUG: User not authenticated for dashboard")
+            return RedirectResponse(url="/admin", status_code=status.HTTP_303_SEE_OTHER)
         
-        if not security_settings.password_require_uppercase:
-            compliance_score -= 5
-            compliance_issues += 1
-            
-        if not security_settings.password_require_lowercase:
-            compliance_score -= 5
-            compliance_issues += 1
-            
-        if not security_settings.password_require_digits:
-            compliance_score -= 5
-            compliance_issues += 1
-            
-        if not security_settings.password_require_special:
-            compliance_score -= 5
-            compliance_issues += 1
-            
-        if security_settings.password_expiry_days > 90:
-            compliance_score -= 5
-            compliance_issues += 1
-            
-        if security_settings.password_history_count < 5:
-            compliance_score -= 5
-            compliance_issues += 1
-            
-        # Login security checks
-        if security_settings.max_login_attempts > 5:
-            compliance_score -= 5
-            compliance_issues += 1
-            
-        if security_settings.lockout_duration_minutes < 30:
-            compliance_score -= 5
-            compliance_issues += 1
-            
-        if security_settings.session_timeout_minutes > 60:
-            compliance_score -= 5
-            compliance_issues += 1
-            
-        if not security_settings.require_mfa:
-            compliance_score -= 15
-            compliance_issues += 1
-    else:
-        compliance_score = 40
-        compliance_issues = 8
-    
-    # Recent login activity for the activity feed
-    recent_logins = db.query(LoginHistory).order_by(
-        LoginHistory.timestamp.desc()
-    ).limit(10).all()
-    
-    # Create recent activities list
-    recent_activities = []
-    for login in recent_logins:
-        user_email = db.query(User.email).filter(User.id == login.user_id).scalar() or "Unknown"
+        # User is already authenticated and confirmed as admin via the is_admin middleware
+        user = request.state.user
         
-        if login.success:
-            activity_type = "login"
-            icon = "sign-in-alt"
-            status = "success"
-            description = f"Successful login by {user_email} from {login.ip_address}"
-        else:
-            activity_type = "security"
-            icon = "exclamation-triangle"
-            status = "danger"
-            description = f"Failed login attempt for {user_email} from {login.ip_address}"
+        print(f"DEBUG: ADMIN ACCESS GRANTED - {user.email}")
+        
+        # Timestamps for calculations
+        now = datetime.utcnow()
+        past_hour = now - timedelta(hours=1)
+        past_day = now - timedelta(days=1)
+        past_week = now - timedelta(days=7)
+        past_month = now - timedelta(days=30)
+        
+        # Total users
+        total_users = db.query(func.count(User.id)).scalar()
+        print(f"DEBUG: Total users: {total_users}")
+        
+        # Active users
+        active_users = db.query(func.count(User.id)).filter(User.is_active == True).scalar()
+        
+        # New users today
+        new_users_today = db.query(func.count(User.id)).filter(
+            User.created_at > past_day
+        ).scalar() or 0
+        
+        # Login statistics
+        total_login_attempts = db.query(func.count(LoginHistory.id)).filter(
+            LoginHistory.timestamp > past_day
+        ).scalar() or 0
+        
+        failed_login_count = db.query(func.count(LoginHistory.id)).filter(
+            LoginHistory.timestamp > past_day,
+            LoginHistory.success == False
+        ).scalar() or 0
+        
+        successful_login_count = db.query(func.count(LoginHistory.id)).filter(
+            LoginHistory.timestamp > past_day,
+            LoginHistory.success == True
+        ).scalar() or 0
+        
+        # Session statistics
+        active_sessions_count = db.query(func.count(DbSession.id)).filter(
+            DbSession.is_active == True,
+            DbSession.expires_at > now
+        ).scalar() or 0
+        
+        total_sessions = db.query(func.count(DbSession.id)).scalar() or 0
+        
+        # Security metrics
+        security_events = failed_login_count
+        critical_events = db.query(func.count(LoginHistory.id)).filter(
+            LoginHistory.timestamp > past_day,
+            LoginHistory.success == False,
+            LoginHistory.risk_score > 75
+        ).scalar() or 0
+        
+        # Unique IPs for failed logins (potential threat indicators)
+        unique_failed_ip_count = db.query(func.count(func.distinct(LoginHistory.ip_address))).filter(
+            LoginHistory.timestamp > past_day,
+            LoginHistory.success == False
+        ).scalar() or 0
+        
+        # Recent blocked IPs (simulated for the dashboard)
+        recent_blocked_ips = db.query(func.count(LoginHistory.id)).filter(
+            LoginHistory.timestamp > past_day,
+            LoginHistory.success == False,
+            LoginHistory.risk_score > 85
+        ).scalar() or 0
+        
+        # Get MFA enablement percentage
+        mfa_enabled_count = db.query(func.count(User.id)).filter(
+            User.mfa_enabled == True,
+            User.is_active == True
+        ).scalar() or 0
+        
+        mfa_adoption = round((mfa_enabled_count / active_users * 100) if active_users > 0 else 0, 1)
+        
+        # Calculate login failure rate
+        login_failure_rate = round((failed_login_count / total_login_attempts * 100) if total_login_attempts > 0 else 0, 1)
+        
+        # Get security settings (for compliance score calculation)
+        security_settings = db.query(SecuritySettings).first()
+        
+        # Calculate compliance score (simulated based on security settings)
+        compliance_score = 0
+        compliance_issues = 0
+        
+        if security_settings:
+            # Base score starts at 100, deduct for each non-compliant setting
+            compliance_score = 100
             
-            if login.risk_score > 75:
-                description += " (High Risk)"
+            # Password policy checks
+            if security_settings.password_min_length < 12:
+                compliance_score -= 5
+                compliance_issues += 1
+            
+            if not security_settings.password_require_uppercase:
+                compliance_score -= 5
+                compliance_issues += 1
                 
-        recent_activities.append({
-            "type": activity_type,
-            "icon": icon,
-            "description": description,
-            "timestamp": login.timestamp.strftime("%Y-%m-%d %H:%M"),
-            "status": status
-        })
-    
-    # Add some administrative activities for variety
-    if len(recent_activities) < 10:
-        admin_activities = [
-            {
-                "type": "admin",
-                "icon": "user-shield",
-                "description": "Administrator updated security settings",
-                "timestamp": (now - timedelta(hours=3)).strftime("%Y-%m-%d %H:%M"),
-                "status": "success"
-            },
-            {
-                "type": "admin",
-                "icon": "user-lock",
-                "description": "User account locked after multiple failed attempts",
-                "timestamp": (now - timedelta(hours=5)).strftime("%Y-%m-%d %H:%M"),
-                "status": "warning"
-            },
-            {
-                "type": "user",
-                "icon": "user-plus",
-                "description": "New user registered and awaiting verification",
-                "timestamp": (now - timedelta(hours=7)).strftime("%Y-%m-%d %H:%M"),
-                "status": "success"
-            }
-        ]
-        recent_activities.extend(admin_activities)
-    
-    # Create critical alerts for the dashboard
-    critical_alerts = []
-    
-    # Check for high-risk login attempts
-    high_risk_logins = db.query(LoginHistory).filter(
-        LoginHistory.timestamp > past_day,
-        LoginHistory.risk_score > 85
-    ).order_by(LoginHistory.timestamp.desc()).limit(3).all()
-    
-    for i, login in enumerate(high_risk_logins):
-        user_email = db.query(User.email).filter(User.id == login.user_id).scalar() or "Unknown"
+            if not security_settings.password_require_lowercase:
+                compliance_score -= 5
+                compliance_issues += 1
+                
+            if not security_settings.password_require_digits:
+                compliance_score -= 5
+                compliance_issues += 1
+                
+            if not security_settings.password_require_special:
+                compliance_score -= 5
+                compliance_issues += 1
+                
+            if security_settings.password_expiry_days > 90:
+                compliance_score -= 5
+                compliance_issues += 1
+                
+            if security_settings.password_history_count < 5:
+                compliance_score -= 5
+                compliance_issues += 1
+                
+            # Login security checks
+            if security_settings.max_login_attempts > 5:
+                compliance_score -= 5
+                compliance_issues += 1
+                
+            if security_settings.lockout_duration_minutes < 30:
+                compliance_score -= 5
+                compliance_issues += 1
+                
+            if security_settings.session_timeout_minutes > 60:
+                compliance_score -= 5
+                compliance_issues += 1
+                
+            if not security_settings.require_mfa:
+                compliance_score -= 15
+                compliance_issues += 1
+        else:
+            compliance_score = 40
+            compliance_issues = 8
         
-        critical_alerts.append({
-            "id": f"login-{login.id}",
-            "title": "High Risk Login Attempt",
-            "message": f"Multiple failed login attempts for {user_email} from {login.ip_address} with risk score {login.risk_score}",
-            "severity": "high",
-            "icon": "shield-alt",
-            "time": login.timestamp.strftime("%H:%M")
-        })
-    
-    # Add additional sample alerts if needed
-    if len(critical_alerts) < 2:
-        sample_alerts = [
-            {
-                "id": "geo-1",
-                "title": "Geographic Anomaly",
-                "message": "Login detected from unusual location: Moscow, Russia",
+        # Recent login activity for the activity feed
+        recent_logins = db.query(LoginHistory).order_by(
+            LoginHistory.timestamp.desc()
+        ).limit(10).all()
+        
+        # Create recent activities list
+        recent_activities = []
+        for login in recent_logins:
+            user_email = db.query(User.email).filter(User.id == login.user_id).scalar() or "Unknown"
+            
+            if login.success:
+                activity_type = "login"
+                icon = "sign-in-alt"
+                status = "success"
+                description = f"Successful login by {user_email} from {login.ip_address}"
+            else:
+                activity_type = "security"
+                icon = "exclamation-triangle"
+                status = "danger"
+                description = f"Failed login attempt for {user_email} from {login.ip_address}"
+                
+                if login.risk_score > 75:
+                    description += " (High Risk)"
+                    
+            recent_activities.append({
+                "type": activity_type,
+                "icon": icon,
+                "description": description,
+                "timestamp": login.timestamp.strftime("%Y-%m-%d %H:%M"),
+                "status": status
+            })
+        
+        # Add some administrative activities for variety
+        if len(recent_activities) < 10:
+            admin_activities = [
+                {
+                    "type": "admin",
+                    "icon": "user-shield",
+                    "description": "Administrator updated security settings",
+                    "timestamp": (now - timedelta(hours=3)).strftime("%Y-%m-%d %H:%M"),
+                    "status": "success"
+                },
+                {
+                    "type": "admin",
+                    "icon": "user-lock",
+                    "description": "User account locked after multiple failed attempts",
+                    "timestamp": (now - timedelta(hours=5)).strftime("%Y-%m-%d %H:%M"),
+                    "status": "warning"
+                },
+                {
+                    "type": "user",
+                    "icon": "user-plus",
+                    "description": "New user registered and awaiting verification",
+                    "timestamp": (now - timedelta(hours=7)).strftime("%Y-%m-%d %H:%M"),
+                    "status": "success"
+                }
+            ]
+            recent_activities.extend(admin_activities)
+        
+        # Create critical alerts for the dashboard
+        critical_alerts = []
+        
+        # Check for high-risk login attempts
+        high_risk_logins = db.query(LoginHistory).filter(
+            LoginHistory.timestamp > past_day,
+            LoginHistory.risk_score > 85
+        ).order_by(LoginHistory.timestamp.desc()).limit(3).all()
+        
+        for i, login in enumerate(high_risk_logins):
+            user_email = db.query(User.email).filter(User.id == login.user_id).scalar() or "Unknown"
+            
+            critical_alerts.append({
+                "id": f"login-{login.id}",
+                "title": "High Risk Login Attempt",
+                "message": f"Multiple failed login attempts for {user_email} from {login.ip_address} with risk score {login.risk_score}",
                 "severity": "high",
-                "icon": "globe",
-                "time": (now - timedelta(hours=2)).strftime("%H:%M")
-            },
-            {
-                "id": "brute-1",
-                "title": "Brute Force Attack",
-                "message": "Multiple failed login attempts (25+) detected from IP 192.168.1.105",
-                "severity": "high",
-                "icon": "user-shield",
-                "time": (now - timedelta(minutes=45)).strftime("%H:%M")
-            },
-            {
-                "id": "mfa-1",
-                "title": "MFA Verification Failed",
-                "message": "Multiple MFA verification failures for admin@example.com",
-                "severity": "medium",
-                "icon": "mobile-alt",
-                "time": (now - timedelta(hours=1)).strftime("%H:%M")
-            }
-        ]
-        critical_alerts.extend(sample_alerts[:2])
-    
-    # Simulate system status
-    system_status = {
-        "level": "normal",
-        "message": "All systems operational",
-        "cpu_usage": 42,
-        "memory_usage": 58,
-        "disk_usage": 67,
-        "db_connections": 12,
-        "max_db_connections": 100,
-        "api_response_time": 312,
-        "issues": []
-    }
-    
-    # If we have critical events, change the system status
-    if critical_events > 2:
-        system_status["level"] = "warning"
-        system_status["message"] = "Security concerns detected"
-        system_status["issues"] = [
-            {
-                "severity": "medium",
-                "type": "SECURITY",
-                "message": "Multiple failed login attempts detected"
-            }
-        ]
-    
-    if critical_events > 5:
-        system_status["level"] = "danger"
-        system_status["message"] = "Critical security issues detected"
-        system_status["issues"] = [
-            {
-                "severity": "high",
-                "type": "SECURITY",
-                "message": "Possible brute force attack in progress"
-            },
-            {
-                "severity": "medium",
-                "type": "SYSTEM",
-                "message": "High memory usage detected"
-            }
-        ]
-        system_status["memory_usage"] = 87
-    
-    # Create stats dictionary
-    stats = {
-        "total_users": total_users,
-        "new_users": new_users_today,
-        "active_sessions": active_sessions_count,
-        "total_sessions": total_sessions,
-        "security_events": security_events,
-        "critical_events": critical_events,
-        "login_attempts": total_login_attempts,
-        "failed_logins": failed_login_count
-    }
-    
-    # Create security metrics dictionary
-    security_metrics = {
-        "login_failure_rate": login_failure_rate,
-        "blocked_ips": unique_failed_ip_count,
-        "recent_blocks": recent_blocked_ips,
-        "mfa_adoption": mfa_adoption,
-        "compliance_score": compliance_score,
-        "compliance_issues": compliance_issues
-    }
-    
-    return templates.TemplateResponse(
-        "admin/dashboard.html",
-        {
-            "request": request,
-            "stats": stats,
-            "security_metrics": security_metrics,
-            "system_status": system_status,
-            "recent_activities": recent_activities,
-            "critical_alerts": critical_alerts,
-            "user": user
+                "icon": "shield-alt",
+                "time": login.timestamp.strftime("%H:%M")
+            })
+        
+        # Add additional sample alerts if needed
+        if len(critical_alerts) < 2:
+            sample_alerts = [
+                {
+                    "id": "geo-1",
+                    "title": "Geographic Anomaly",
+                    "message": "Login detected from unusual location: Moscow, Russia",
+                    "severity": "high",
+                    "icon": "globe",
+                    "time": (now - timedelta(hours=2)).strftime("%H:%M")
+                },
+                {
+                    "id": "brute-1",
+                    "title": "Brute Force Attack",
+                    "message": "Multiple failed login attempts (25+) detected from IP 192.168.1.105",
+                    "severity": "high",
+                    "icon": "user-shield",
+                    "time": (now - timedelta(minutes=45)).strftime("%H:%M")
+                },
+                {
+                    "id": "mfa-1",
+                    "title": "MFA Verification Failed",
+                    "message": "Multiple MFA verification failures for admin@example.com",
+                    "severity": "medium",
+                    "icon": "mobile-alt",
+                    "time": (now - timedelta(hours=1)).strftime("%H:%M")
+                }
+            ]
+            critical_alerts.extend(sample_alerts[:2])
+        
+        # Simulate system status
+        system_status = {
+            "level": "normal",
+            "message": "All systems operational",
+            "cpu_usage": 42,
+            "memory_usage": 58,
+            "disk_usage": 67,
+            "db_connections": 12,
+            "max_db_connections": 100,
+            "api_response_time": 312,
+            "issues": []
         }
-    )
+        
+        # If we have critical events, change the system status
+        if critical_events > 2:
+            system_status["level"] = "warning"
+            system_status["message"] = "Security concerns detected"
+            system_status["issues"] = [
+                {
+                    "severity": "medium",
+                    "type": "SECURITY",
+                    "message": "Multiple failed login attempts detected"
+                }
+            ]
+        
+        if critical_events > 5:
+            system_status["level"] = "danger"
+            system_status["message"] = "Critical security issues detected"
+            system_status["issues"] = [
+                {
+                    "severity": "high",
+                    "type": "SECURITY",
+                    "message": "Possible brute force attack in progress"
+                },
+                {
+                    "severity": "medium",
+                    "type": "SYSTEM",
+                    "message": "High memory usage detected"
+                }
+            ]
+            system_status["memory_usage"] = 87
+        
+        # Create stats dictionary
+        stats = {
+            "total_users": total_users,
+            "new_users": new_users_today,
+            "active_sessions": active_sessions_count,
+            "total_sessions": total_sessions,
+            "security_events": security_events,
+            "critical_events": critical_events,
+            "login_attempts": total_login_attempts,
+            "failed_logins": failed_login_count
+        }
+        
+        # Create security metrics dictionary
+        security_metrics = {
+            "login_failure_rate": login_failure_rate,
+            "blocked_ips": unique_failed_ip_count,
+            "recent_blocks": recent_blocked_ips,
+            "mfa_adoption": mfa_adoption,
+            "compliance_score": compliance_score,
+            "compliance_issues": compliance_issues
+        }
+        
+        # Debug
+        print(f"DEBUG: Rendering dashboard template with stats: {stats}")
+        
+        # Check if minimal dashboard is requested
+        use_minimal = request.query_params.get("minimal", "false").lower() == "true"
+        template_name = "admin/dashboard_minimal.html" if use_minimal else "admin/dashboard.html"
+        
+        print(f"DEBUG: Using template: {template_name}")
+        
+        response = templates.TemplateResponse(
+            template_name,
+            {
+                "request": request,
+                "stats": stats,
+                "security_metrics": security_metrics,
+                "system_status": system_status,
+                "recent_activities": recent_activities,
+                "critical_alerts": critical_alerts,
+                "user": user,
+                "body_class": "admin-view"
+            }
+        )
+        
+        print("DEBUG: Template response created, returning")
+        return response
+    except Exception as e:
+        print(f"ERROR: Exception in admin_dashboard: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        # Return a simple error page instead of crashing
+        return templates.TemplateResponse(
+            "errors/500.html",
+            {
+                "request": request,
+                "error": str(e),
+                "body_class": "error-view"
+            }
+        )
+
+@router.get("/dashboard/minimal", response_class=HTMLResponse)
+async def admin_dashboard_minimal(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """Display a minimal version of the admin dashboard for debugging"""
+    print("DEBUG: Redirecting to minimal dashboard")
+    return RedirectResponse(url="/admin/dashboard?minimal=true", status_code=status.HTTP_302_FOUND)
 
 # User management
 @router.get("/users", response_class=HTMLResponse)
