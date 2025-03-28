@@ -4,6 +4,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.middleware.authentication import AuthenticationMiddleware
 from starlette.authentication import AuthenticationBackend, SimpleUser, AuthCredentials
+from starlette.responses import HTMLResponse
 import os
 from dotenv import load_dotenv
 
@@ -66,9 +67,22 @@ app.include_router(users)
 app.include_router(security)
 app.include_router(admin, prefix="/admin")
 
-@app.get("/")
+@app.get("/", response_class=HTMLResponse)
+@app.head("/")
+@app.options("/")
 async def root(request: Request):
     """Render the home page"""
+    if request.method == "OPTIONS":
+        # Return CORS headers for OPTIONS request
+        headers = {
+            "Allow": "GET, HEAD, OPTIONS",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type",
+        }
+        return HTMLResponse(content="", headers=headers)
+    
+    # For GET and HEAD requests
     return templates.TemplateResponse(
         "index.html", 
         {
