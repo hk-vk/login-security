@@ -120,21 +120,50 @@ async def admin_dashboard(
         DbSession.is_active == True,
         DbSession.expires_at > now
     ).scalar()
+
+    # Create stats dictionary to match the template expectations
+    stats = {
+        "total_users": total_users,
+        "active_users": active_users,
+        "locked_accounts": locked_accounts,
+        "mfa_enabled_count": mfa_enabled_count,
+        "mfa_enabled_percentage": round(mfa_enabled_percentage, 1),
+        "failed_login_count": failed_login_count,
+        "successful_login_count": successful_login_count,
+        "average_risk_score": round(avg_risk, 2),
+        "active_sessions": active_sessions,
+        "new_users": db.query(func.count(User.id)).filter(
+            User.created_at > past_day
+        ).scalar() or 0,
+        "total_sessions": db.query(func.count(DbSession.id)).scalar() or 0,
+        "security_events": failed_login_count,
+        "critical_events": db.query(func.count(LoginHistory.id)).filter(
+            LoginHistory.timestamp > past_day,
+            LoginHistory.success == False,
+            LoginHistory.risk_score > 75
+        ).scalar() or 0,
+        "login_attempts": failed_login_count + successful_login_count
+    }
+    
+    # Create mock recent activities for the dashboard
+    recent_activities = []
+    for login in recent_failed_logins:
+        user_email = db.query(User.email).filter(User.id == login.user_id).scalar() or "Unknown"
+        recent_activities.append({
+            "type": "security",
+            "icon": "exclamation-triangle" if not login.success else "check-circle",
+            "description": f"Failed login attempt for {user_email} from {login.ip_address}",
+            "timestamp": login.timestamp.strftime("%Y-%m-%d %H:%M"),
+            "status": "warning"
+        })
     
     return templates.TemplateResponse(
         "admin/dashboard.html",
         {
             "request": request,
-            "total_users": total_users,
-            "active_users": active_users,
-            "locked_accounts": locked_accounts,
-            "mfa_enabled_count": mfa_enabled_count,
-            "mfa_enabled_percentage": round(mfa_enabled_percentage, 1),
-            "failed_login_count": failed_login_count,
-            "successful_login_count": successful_login_count,
-            "average_risk_score": round(avg_risk, 2),
+            "stats": stats,
             "recent_failed_logins": recent_failed_logins,
-            "active_sessions": active_sessions
+            "recent_activities": recent_activities
         }
     )
 
