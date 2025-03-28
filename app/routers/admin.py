@@ -46,10 +46,30 @@ def get_admin_user(request: Request, db: Session = Depends(get_db), current_user
 @router.get("/dashboard", response_class=HTMLResponse)
 async def admin_dashboard(
     request: Request,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_admin_user)
+    db: Session = Depends(get_db)
 ):
     """Display the admin dashboard with security metrics"""
+    # Check if user is authenticated
+    if not hasattr(request, "user") or not request.user.is_authenticated:
+        print("DEBUG: User not authenticated for dashboard")
+        return RedirectResponse(url="/admin", status_code=status.HTTP_303_SEE_OTHER)
+    
+    # Get the actual user from the DB based on the authenticated user
+    user_email = request.user.username
+    print(f"DEBUG: DASHBOARD - Looking up user: {user_email}")
+    user = db.query(User).filter(User.email == user_email).first()
+    
+    if not user:
+        print(f"DEBUG: User not found in database: {user_email}")
+        return RedirectResponse(url="/admin", status_code=status.HTTP_303_SEE_OTHER)
+        
+    # Check if user is admin
+    if not user.is_superuser:
+        print(f"DEBUG: ADMIN ACCESS DENIED - {user_email} is not an admin")
+        return RedirectResponse(url="/admin", status_code=status.HTTP_303_SEE_OTHER)
+    
+    print(f"DEBUG: ADMIN ACCESS GRANTED - {user_email}")
+    
     # Total users
     total_users = db.query(func.count(User.id)).scalar()
     
@@ -123,11 +143,23 @@ async def admin_dashboard(
 async def admin_users(
     request: Request,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_admin_user),
     page: int = Query(1, ge=1),
     search: str = Query(None)
 ):
     """Display user management page"""
+    # Check if user is authenticated
+    if not hasattr(request, "user") or not request.user.is_authenticated:
+        print("DEBUG: User not authenticated for users page")
+        return RedirectResponse(url="/admin", status_code=status.HTTP_303_SEE_OTHER)
+    
+    # Get the actual user from the DB based on the authenticated user
+    user_email = request.user.username
+    current_user = db.query(User).filter(User.email == user_email).first()
+    
+    if not current_user or not current_user.is_superuser:
+        print(f"DEBUG: ADMIN ACCESS DENIED - {user_email} is not an admin")
+        return RedirectResponse(url="/admin", status_code=status.HTTP_303_SEE_OTHER)
+    
     # Items per page
     per_page = 10
     

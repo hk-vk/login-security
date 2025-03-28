@@ -8,7 +8,12 @@ class CustomUser:
         self.user_id = user_id
         self.is_superuser = is_superuser
         self.is_authenticated = True
+        print(f"DEBUG: CustomUser created - {username}, is_superuser: {is_superuser}")
 
     @property
     def identity(self) -> str:
+        return self.username
+        
+    @property
+    def email(self) -> str:
         return self.username 

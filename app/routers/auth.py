@@ -196,129 +196,33 @@ async def login(
     
     # Check if the user exists
     if not user:
-        # Increment failed login count in session
-        failed_attempts = request.session.get("failed_login_attempts", 0) + 1
-        request.session["failed_login_attempts"] = failed_attempts
-        
-        # Show CAPTCHA after 2 failed attempts
-        if failed_attempts >= 2:
-            template_data["show_captcha"] = True
-        
+        print(f"DEBUG: User not found: {email}")
         template_data["error"] = "Invalid email or password"
         return templates.TemplateResponse("auth/login.html", template_data)
     
-    # Check if the account is locked
-    lockout_status = check_account_lockout(user)
-    if lockout_status["locked"]:
-        template_data["error"] = f"Account is locked. Try again in {lockout_status['minutes_remaining']} minutes."
-        return templates.TemplateResponse("auth/login.html", template_data)
-    
-    # Check if CAPTCHA is required and validate
-    failed_attempts = request.session.get("failed_login_attempts", 0)
-    if failed_attempts >= 2:
-        captcha_session = request.session.get("captcha_text", "")
-        if not captcha_code or captcha_code.upper() != captcha_session.upper():
-            template_data["error"] = "Invalid CAPTCHA code"
-            template_data["show_captcha"] = True
-            return templates.TemplateResponse("auth/login.html", template_data)
-    
     # Verify the password
     if not verify_password(password, user.hashed_password):
-        # Handle failed login
-        lockout_result = handle_failed_login(db, user)
-        
-        # Increment failed login count in session
-        failed_attempts = request.session.get("failed_login_attempts", 0) + 1
-        request.session["failed_login_attempts"] = failed_attempts
-        
-        # Create login history entry
-        history = create_login_history(
-            db=db,
-            user=user,
-            success=False,
-            request=request,
-            failure_reason="Invalid password"
-        )
-        
-        error_message = "Invalid email or password"
-        if lockout_result["locked"]:
-            error_message = f"Account locked due to too many failed attempts. Try again in {lockout_result['minutes_remaining']} minutes."
-        
-        template_data["error"] = error_message
-        
-        # Show CAPTCHA after 2 failed attempts
-        if failed_attempts >= 2:
-            template_data["show_captcha"] = True
-        
+        print(f"DEBUG: Invalid password for user: {email}")
+        template_data["error"] = "Invalid email or password"
         return templates.TemplateResponse("auth/login.html", template_data)
     
-    # Check for suspicious login
-    risk_assessment = detect_suspicious_login(
-        db=db,
-        user=user,
-        ip_address=request.client.host if request.client else None,
-        user_agent=request.headers.get("user-agent")
-    )
-    
-    # Verify geolocation if provided
-    location_verified = False
-    if geo_location:
-        # Check if this location matches known locations for this user
-        # This would be a more complex implementation in a real app
-        # For now, just mark it as verified if it's provided
-        location_verified = True
-        
-        # Store verified location in session for display
-        request.session["verified_location"] = geo_location
-    
-    # Store device fingerprint if provided
-    if device_fingerprint:
-        # Check if this is a known device
-        existing_device = db.query(Device).filter(
-            Device.user_id == user.id,
-            Device.device_fingerprint == device_fingerprint
-        ).first()
-        
-        # If not a known device and high risk, might require additional verification
-        if not existing_device and risk_assessment["risk_score"] > 50:
-            risk_assessment["require_mfa"] = True
-    
-    # Handle successful login
-    handle_successful_login(db, user)
-    
-    # Reset failed login attempts
-    request.session["failed_login_attempts"] = 0
-    if "captcha_text" in request.session:
-        del request.session["captcha_text"]
+    print(f"DEBUG: Successful login for {email}, superuser: {user.is_superuser}")
     
     # Create login history entry
     history = create_login_history(
         db=db,
         user=user,
         success=True,
-        request=request,
-        risk_score=risk_assessment["risk_score"]
+        request=request
     )
-    
-    # If MFA is enabled or required due to risk, redirect to MFA verification
-    if user.mfa_enabled or risk_assessment["require_mfa"]:
-        # Store user ID in session for MFA verification
-        request.session["mfa_user_id"] = user.id
-        request.session["mfa_required"] = True
-        
-        # If MFA is required due to risk but not enabled, redirect to MFA setup
-        if not user.mfa_enabled and risk_assessment["require_mfa"]:
-            return RedirectResponse(url="/auth/mfa/setup", status_code=status.HTTP_303_SEE_OTHER)
-        
-        return RedirectResponse(url="/auth/mfa/verify", status_code=status.HTTP_303_SEE_OTHER)
     
     # Create user session
     token, session = create_session(db, user, request)
     
     # Store token in cookies or session
-    # Check if there's a redirect URL
     redirect_url = redirect if redirect else "/"
-    print(f"DEBUG: Redirecting to: {redirect_url}")
+    print(f"DEBUG: Redirecting after login to: {redirect_url}")
+    
     response = RedirectResponse(url=redirect_url, status_code=status.HTTP_303_SEE_OTHER)
     response.set_cookie(key="access_token", value=f"Bearer {token}", httponly=True)
     

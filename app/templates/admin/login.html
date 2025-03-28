@@ -182,7 +182,7 @@
             </div>
         {% endif %}
 
-        <form method="POST" action="/auth/login?next=/admin/dashboard" class="admin-login-form">
+        <form method="POST" action="/auth/login" class="admin-login-form">
             <div class="form-group">
                 <label for="email">Email Address</label>
                 <div class="input-group">
@@ -217,7 +217,7 @@
             
             <input type="hidden" id="device_fingerprint" name="device_fingerprint" value="">
             <input type="hidden" id="geo_location" name="geo_location" value="">
-            <input type="hidden" id="redirect" name="redirect" value="/admin/dashboard">
+            <input type="hidden" name="redirect" value="/admin/dashboard">
         </form>
 
         <div class="admin-login-form" style="padding-top: 0;">

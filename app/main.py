@@ -42,6 +42,7 @@ class TokenAuthBackend(AuthenticationBackend):
         token = request.cookies["access_token"]
         if token and token.startswith("Bearer "):
             token = token[7:]  # Remove "Bearer " prefix
+            print(f"DEBUG: AUTH - Verifying token: {token[:10]}...")
             
             # Get a database session
             db = SessionLocal()
@@ -54,12 +55,19 @@ class TokenAuthBackend(AuthenticationBackend):
                 ).first()
                 
                 if not session:
+                    print("DEBUG: AUTH - No valid session found for token")
                     return None
                 
                 # Get the user
                 user = db.query(User).filter(User.id == session.user_id).first()
-                if not user or not user.is_active:
+                if not user:
+                    print("DEBUG: AUTH - User not found")
                     return None
+                if not user.is_active:
+                    print(f"DEBUG: AUTH - User {user.email} is not active")
+                    return None
+                
+                print(f"DEBUG: AUTH - Found user: {user.email}, superuser: {user.is_superuser}")
                 
                 # Update session last active time
                 session.last_active_at = datetime.utcnow()
@@ -69,7 +77,9 @@ class TokenAuthBackend(AuthenticationBackend):
                 scopes = ["authenticated"]
                 if user.is_superuser:
                     scopes.append("admin")
+                    print(f"DEBUG: AUTH - Adding admin scope for {user.email}")
                 
+                print(f"DEBUG: AUTH - Creating authentication with scopes: {scopes}")
                 return AuthCredentials(scopes), CustomUser(
                     username=user.email,
                     display_name=f"{user.first_name} {user.last_name}".strip(),
