@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}Setup MFA - Adaptive Login Security System{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-6">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">Set Up Multi-Factor Authentication</h4>
+            </div>
+            <div class="card-body">
+                {% if error %}
+                <div class="alert alert-danger">
+                    {{ error }}
+                </div>
+                {% endif %}
+
+                <div class="alert alert-info">
+                    <h5>Why Set Up MFA?</h5>
+                    <p>Multi-Factor Authentication adds an extra layer of security to your account. Even if someone has your password, they won't be able to access your account without the verification code.</p>
+                </div>
+
+                <div class="text-center mb-4">
+                    <p>Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.):</p>
+                    <img src="{{ qr_code }}" alt="QR Code" class="img-fluid mb-3" style="max-width: 250px;">
+                    
+                    <p>Or manually enter this secret key:</p>
+                    <div class="input-group mb-3">
+                        <input type="text" class="form-control text-center" value="{{ secret }}" readonly>
+                        <button class="btn btn-outline-secondary" type="button" onclick="copySecret()">Copy</button>
+                    </div>
+                </div>
+
+                <form method="post" action="/auth/mfa/setup">
+                    <div class="mb-3">
+                        <label for="code" class="form-label">Verification Code</label>
+                        <input type="text" class="form-control" id="code" name="code" required 
+                            placeholder="Enter the 6-digit code from your app" autocomplete="off">
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">Verify and Enable MFA</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function copySecret() {
+        const secretField = document.querySelector('input[value="{{ secret }}"]');
+        secretField.select();
+        document.execCommand('copy');
+        alert('Secret key copied to clipboard!');
+    }
+</script>
+{% endblock %} 

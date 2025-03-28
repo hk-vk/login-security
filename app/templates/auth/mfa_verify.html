@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}Verify MFA - Adaptive Login Security System{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-6">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">MFA Verification Required</h4>
+            </div>
+            <div class="card-body">
+                {% if error %}
+                <div class="alert alert-danger">
+                    {{ error }}
+                </div>
+                {% endif %}
+
+                <div class="alert alert-info mb-4">
+                    <p>For additional security, please enter the verification code from your authenticator app.</p>
+                </div>
+
+                <form method="post" action="/auth/mfa/verify">
+                    <div class="mb-3">
+                        <label for="code" class="form-label">Verification Code</label>
+                        <input type="text" class="form-control" id="code" name="code" required 
+                            placeholder="Enter the 6-digit code from your app" autocomplete="off">
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">Verify</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
