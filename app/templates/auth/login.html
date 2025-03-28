@@ -169,7 +169,7 @@
             </div>
         </div>
 
-        <form method="POST" action="/auth/login{% if admin_redirect %}?redirect=/admin/dashboard{% endif %}" class="auth-form">
+        <form method="POST" action="/auth/login{% if admin_redirect %}?next=/admin/dashboard{% endif %}" class="auth-form">
             <div class="form-group">
                 <label for="email">Email Address</label>
                 <div class="input-group">
@@ -225,6 +225,9 @@
             <input type="hidden" id="device_fingerprint" name="device_fingerprint" value="">
             <input type="hidden" id="geo_location" name="geo_location" value="">
             <input type="hidden" id="captcha_token" name="captcha_token" value="">
+            {% if admin_redirect %}
+            <input type="hidden" name="redirect" value="/admin/dashboard">
+            {% endif %}
         </form>
 
         <div class="device-fingerprint">

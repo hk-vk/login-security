@@ -8,6 +8,8 @@ from starlette.responses import HTMLResponse, RedirectResponse
 import os
 from dotenv import load_dotenv
 from starlette import status
+from sqlalchemy.orm import Session
+from app.database.database import get_db
 
 # Import custom user class
 from app.starlette.authentication import CustomUser
@@ -17,7 +19,10 @@ from app.database.database import engine, Base
 from app.database.init_db import init_db
 
 # Import routers
-from app.routers import auth, users, security, admin
+from app.routers.auth import router as auth_router
+from app.routers.users import router as users_router
+from app.routers.security import router as security_router
+from app.routers.admin import router as admin_router
 
 # Load environment variables
 load_dotenv()
@@ -105,15 +110,18 @@ app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
 # Include routers
-app.include_router(auth)
-app.include_router(users)
-app.include_router(security)
-app.include_router(admin, prefix="/admin")
+app.include_router(auth_router)
+app.include_router(users_router)
+app.include_router(security_router)
 
+# Admin routes are handled separately to allow for the login intercept
 # Admin login intercept
 @app.get("/admin", response_class=HTMLResponse)
-async def admin_login_intercept(request: Request):
+@app.get("/admin/", response_class=HTMLResponse)
+async def admin_login_intercept(request: Request, db: Session = Depends(get_db)):
     """Intercept requests to /admin and redirect non-authenticated users to admin login"""
+    from app.models.user import User
+    
     # Check if user is authenticated
     if not hasattr(request, "user") or not request.user.is_authenticated:
         # User is not authenticated, render admin login page
@@ -126,8 +134,12 @@ async def admin_login_intercept(request: Request):
             }
         )
     
+    # Get actual user from database for superuser check
+    user_email = request.user.username
+    user = db.query(User).filter(User.email == user_email).first()
+    
     # Check if user is admin
-    if not hasattr(request.user, "is_superuser") or not request.user.is_superuser:
+    if not user or not user.is_superuser:
         # User is authenticated but not an admin
         return templates.TemplateResponse(
             "auth/login.html",
@@ -141,6 +153,9 @@ async def admin_login_intercept(request: Request):
     
     # For authenticated admin users, redirect to admin dashboard
     return RedirectResponse(url="/admin/dashboard", status_code=status.HTTP_303_SEE_OTHER)
+
+# Include admin router
+app.include_router(admin_router, prefix="/admin")
 
 @app.get("/", response_class=HTMLResponse)
 @app.head("/")
@@ -170,6 +185,29 @@ async def root(request: Request):
 async def startup_event():
     """Initialize the database on startup"""
     init_db()
+
+# Add 404 exception handler
+@app.exception_handler(404)
+async def custom_404_handler(request: Request, exc):
+    """Handle 404 errors gracefully"""
+    if request.url.path.startswith("/admin"):
+        # For admin routes, redirect to admin login
+        return templates.TemplateResponse(
+            "auth/login.html",
+            {
+                "request": request,
+                "is_admin_login": True,
+                "admin_redirect": True,
+                "error": "The requested admin page was not found."
+            }
+        )
+    return templates.TemplateResponse(
+        "errors/404.html", 
+        {
+            "request": request,
+            "path": request.url.path
+        }
+    )
 
 if __name__ == "__main__":
     import uvicorn
