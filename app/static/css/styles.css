@@ -731,4 +731,203 @@ footer p {
 
 .user-status-locked {
     color: var(--danger);
+}
+
+/* Password strength indicator */
+.password-strength-meter {
+    height: 6px;
+    width: 100%;
+    background-color: var(--gray-200);
+    border-radius: 3px;
+    margin-top: 10px;
+    position: relative;
+    overflow: hidden;
+}
+
+.password-strength-meter-bar {
+    height: 100%;
+    width: 0%;
+    border-radius: 3px;
+    transition: width 0.3s ease, background-color 0.3s ease;
+}
+
+.strength-weak {
+    width: 25%;
+    background-color: var(--danger);
+}
+
+.strength-fair {
+    width: 50%;
+    background-color: var(--warning);
+}
+
+.strength-good {
+    width: 75%;
+    background-color: var(--secondary);
+}
+
+.strength-strong {
+    width: 100%;
+    background-color: var(--success);
+}
+
+.password-strength-text {
+    font-size: 0.8rem;
+    margin-top: 5px;
+    text-align: right;
+    font-weight: 500;
+}
+
+.password-strength-text.weak { color: var(--danger); }
+.password-strength-text.fair { color: var(--warning); }
+.password-strength-text.good { color: var(--secondary); }
+.password-strength-text.strong { color: var(--success); }
+
+.password-requirements {
+    margin-top: 15px;
+    font-size: 0.85rem;
+    color: var(--gray-600);
+}
+
+.password-requirements p {
+    margin-bottom: 5px;
+    font-weight: 500;
+}
+
+.password-requirements ul {
+    list-style: none;
+    padding-left: 0;
+    display: flex;
+    flex-wrap: wrap;
+    margin: 0;
+}
+
+.password-requirements li {
+    position: relative;
+    padding-left: 20px;
+    margin-right: 10px;
+    margin-bottom: 5px;
+    transition: color 0.3s ease;
+    display: flex;
+    align-items: center;
+    width: calc(50% - 10px);
+}
+
+.password-requirements li::before {
+    content: "✕";
+    position: absolute;
+    left: 0;
+    color: var(--gray-400);
+    font-weight: bold;
+    transition: color 0.3s ease;
+}
+
+.password-requirements li.valid {
+    color: var(--success);
+}
+
+.password-requirements li.valid::before {
+    content: "✓";
+    color: var(--success);
+}
+
+/* Geolocation verification */
+.geo-verification {
+    background-color: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+    padding: 1rem;
+    border-radius: var(--border-radius);
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.geo-verification.warning {
+    background-color: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+.geo-verification i {
+    font-size: 1.5rem;
+    color: var(--success);
+}
+
+.geo-verification.warning i {
+    color: var(--warning);
+}
+
+.geo-verification-info {
+    flex: 1;
+}
+
+.geo-verification-info h4 {
+    margin: 0 0 0.25rem;
+    font-size: 1rem;
+    color: var(--success);
+}
+
+.geo-verification.warning .geo-verification-info h4 {
+    color: var(--warning);
+}
+
+.geo-verification-info p {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--gray-700);
+}
+
+/* Device fingerprinting */
+.device-fingerprint {
+    margin-bottom: 1.5rem;
+}
+
+.device-fingerprint-card {
+    background-color: white;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    border: 1px solid var(--gray-200);
+    transition: var(--transition);
+}
+
+.device-fingerprint-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.device-fingerprint-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: var(--gray-100);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.device-fingerprint-icon i {
+    color: var(--primary);
+    font-size: 1.25rem;
+}
+
+.device-fingerprint-info {
+    flex: 1;
+}
+
+.device-fingerprint-info h4 {
+    margin: 0 0 0.25rem;
+    font-size: 0.95rem;
+    color: var(--gray-900);
+}
+
+.device-fingerprint-info p {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--gray-600);
 } 

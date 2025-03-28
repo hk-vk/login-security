@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Form
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from fastapi.responses import RedirectResponse, HTMLResponse
+from fastapi.responses import RedirectResponse, HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from typing import Optional
@@ -168,39 +168,57 @@ async def login(
     request: Request,
     db: Session = Depends(get_db),
     email: str = Form(...),
-    password: str = Form(...)
+    password: str = Form(...),
+    device_fingerprint: str = Form(None),
+    geo_location: str = Form(None),
+    captcha_code: str = Form(None)
 ):
     """Handle the login form submission"""
     # Find the user
     user = db.query(User).filter(User.email == email).first()
     
+    # Prepare response data for template
+    template_data = {
+        "request": request,
+        "email": email
+    }
+    
     # Check if the user exists
     if not user:
-        return templates.TemplateResponse(
-            "auth/login.html", 
-            {
-                "request": request,
-                "error": "Invalid email or password",
-                "email": email
-            }
-        )
+        # Increment failed login count in session
+        failed_attempts = request.session.get("failed_login_attempts", 0) + 1
+        request.session["failed_login_attempts"] = failed_attempts
+        
+        # Show CAPTCHA after 2 failed attempts
+        if failed_attempts >= 2:
+            template_data["show_captcha"] = True
+        
+        template_data["error"] = "Invalid email or password"
+        return templates.TemplateResponse("auth/login.html", template_data)
     
     # Check if the account is locked
     lockout_status = check_account_lockout(user)
     if lockout_status["locked"]:
-        return templates.TemplateResponse(
-            "auth/login.html", 
-            {
-                "request": request,
-                "error": f"Account is locked. Try again in {lockout_status['minutes_remaining']} minutes.",
-                "email": email
-            }
-        )
+        template_data["error"] = f"Account is locked. Try again in {lockout_status['minutes_remaining']} minutes."
+        return templates.TemplateResponse("auth/login.html", template_data)
+    
+    # Check if CAPTCHA is required and validate
+    failed_attempts = request.session.get("failed_login_attempts", 0)
+    if failed_attempts >= 2:
+        captcha_session = request.session.get("captcha_text", "")
+        if not captcha_code or captcha_code.upper() != captcha_session.upper():
+            template_data["error"] = "Invalid CAPTCHA code"
+            template_data["show_captcha"] = True
+            return templates.TemplateResponse("auth/login.html", template_data)
     
     # Verify the password
     if not verify_password(password, user.hashed_password):
         # Handle failed login
         lockout_result = handle_failed_login(db, user)
+        
+        # Increment failed login count in session
+        failed_attempts = request.session.get("failed_login_attempts", 0) + 1
+        request.session["failed_login_attempts"] = failed_attempts
         
         # Create login history entry
         history = create_login_history(
@@ -215,14 +233,13 @@ async def login(
         if lockout_result["locked"]:
             error_message = f"Account locked due to too many failed attempts. Try again in {lockout_result['minutes_remaining']} minutes."
         
-        return templates.TemplateResponse(
-            "auth/login.html", 
-            {
-                "request": request,
-                "error": error_message,
-                "email": email
-            }
-        )
+        template_data["error"] = error_message
+        
+        # Show CAPTCHA after 2 failed attempts
+        if failed_attempts >= 2:
+            template_data["show_captcha"] = True
+        
+        return templates.TemplateResponse("auth/login.html", template_data)
     
     # Check for suspicious login
     risk_assessment = detect_suspicious_login(
@@ -232,8 +249,36 @@ async def login(
         user_agent=request.headers.get("user-agent")
     )
     
+    # Verify geolocation if provided
+    location_verified = False
+    if geo_location:
+        # Check if this location matches known locations for this user
+        # This would be a more complex implementation in a real app
+        # For now, just mark it as verified if it's provided
+        location_verified = True
+        
+        # Store verified location in session for display
+        request.session["verified_location"] = geo_location
+    
+    # Store device fingerprint if provided
+    if device_fingerprint:
+        # Check if this is a known device
+        existing_device = db.query(Device).filter(
+            Device.user_id == user.id,
+            Device.fingerprint == device_fingerprint
+        ).first()
+        
+        # If not a known device and high risk, might require additional verification
+        if not existing_device and risk_assessment["risk_score"] > 50:
+            risk_assessment["require_mfa"] = True
+    
     # Handle successful login
     handle_successful_login(db, user)
+    
+    # Reset failed login attempts
+    request.session["failed_login_attempts"] = 0
+    if "captcha_text" in request.session:
+        del request.session["captcha_text"]
     
     # Create login history entry
     history = create_login_history(
@@ -366,6 +411,20 @@ async def logout(request: Request, db: Session = Depends(get_db)):
     response.delete_cookie(key="access_token")
     
     return response
+
+@router.get("/captcha")
+async def generate_captcha(request: Request):
+    """Generate a new CAPTCHA for the session"""
+    # Generate a random captcha code
+    import random
+    import string
+    captcha_text = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+    
+    # Store the captcha text in the session
+    request.session["captcha_text"] = captcha_text
+    
+    # Return the captcha text (in a real implementation, would return an image)
+    return JSONResponse({"captcha": captcha_text})
 
 @router.get("/mfa/setup", response_class=HTMLResponse)
 async def mfa_setup_page(request: Request, db: Session = Depends(get_db)):

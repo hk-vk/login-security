@@ -2,6 +2,108 @@
 
 {% block title %}Login - Adaptive Login Security System{% endblock %}
 
+{% block extra_css %}
+<style>
+.hidden {
+    display: none;
+}
+
+.captcha-container {
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--gray-300);
+    border-radius: var(--border-radius);
+    overflow: hidden;
+}
+
+.captcha-header {
+    padding: 0.75rem;
+    background-color: var(--gray-100);
+    border-bottom: 1px solid var(--gray-300);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.captcha-header i {
+    color: var(--primary);
+}
+
+.captcha-header h4 {
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--gray-900);
+}
+
+.captcha-content {
+    padding: 1rem;
+    background-color: white;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.captcha-image {
+    background-color: var(--gray-50);
+    border: 1px solid var(--gray-300);
+    padding: 0.75rem;
+    border-radius: var(--border-radius);
+    display: flex;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+    min-height: 70px;
+}
+
+.captcha-image canvas {
+    max-width: 100%;
+}
+
+.captcha-input {
+    width: 100%;
+}
+
+.captcha-input input {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--gray-300);
+    border-radius: var(--border-radius);
+    font-size: 1rem;
+    transition: var(--transition);
+}
+
+.captcha-input input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+.captcha-refresh {
+    background: none;
+    border: none;
+    color: var(--primary);
+    cursor: pointer;
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background-color: white;
+    box-shadow: var(--shadow-sm);
+    transition: var(--transition);
+}
+
+.captcha-refresh:hover {
+    transform: rotate(30deg);
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="auth-container">
     <div class="auth-card">
@@ -34,6 +136,14 @@
         </div>
         {% endif %}
 
+        <div class="geo-verification" id="geo-verification" style="display: none;">
+            <i class="fas fa-map-marker-alt"></i>
+            <div class="geo-verification-info">
+                <h4>Location Verified</h4>
+                <p>Login from <span id="user-location">your area</span></p>
+            </div>
+        </div>
+
         <form method="POST" action="/auth/login" class="auth-form">
             <div class="form-group">
                 <label for="email">Email Address</label>
@@ -56,6 +166,26 @@
                 </div>
             </div>
 
+            <div id="captcha-section" class="{% if not show_captcha %}hidden{% endif %}">
+                <div class="captcha-container">
+                    <div class="captcha-header">
+                        <i class="fas fa-shield-alt"></i>
+                        <h4>Security Verification</h4>
+                    </div>
+                    <div class="captcha-content">
+                        <div class="captcha-image">
+                            <canvas id="captcha-canvas" width="200" height="70"></canvas>
+                            <button type="button" class="captcha-refresh" onclick="refreshCaptcha()">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
+                        <div class="captcha-input">
+                            <input type="text" id="captcha_code" name="captcha_code" placeholder="Enter the code shown above">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div class="form-group remember-forgot">
                 <label class="checkbox-container">
                     <input type="checkbox" name="remember" id="remember">
@@ -66,7 +196,24 @@
             </div>
 
             <button type="submit" class="btn-primary">Sign In</button>
+            
+            <input type="hidden" id="device_fingerprint" name="device_fingerprint" value="">
+            <input type="hidden" id="geo_location" name="geo_location" value="">
+            <input type="hidden" id="captcha_token" name="captcha_token" value="">
         </form>
+
+        <div class="device-fingerprint">
+            <h4 style="font-size: 0.9rem; color: var(--gray-700); margin: 1.5rem 0 0.75rem; padding: 0 2rem;">Trusted Devices</h4>
+            <div class="device-fingerprint-card" id="current-device" style="margin: 0 2rem;">
+                <div class="device-fingerprint-icon">
+                    <i class="fas fa-laptop"></i>
+                </div>
+                <div class="device-fingerprint-info">
+                    <h4>Current Device</h4>
+                    <p id="browser-info">Checking your browser...</p>
+                </div>
+            </div>
+        </div>
 
         <div class="auth-footer">
             <p>Don't have an account? <a href="/auth/register">Sign Up</a></p>
@@ -90,5 +237,169 @@ function togglePassword(inputId) {
         icon.classList.add('fa-eye');
     }
 }
+
+// Device fingerprinting function
+function generateFingerprint() {
+    const screenResolution = `${window.screen.width}x${window.screen.height}`;
+    const colorDepth = window.screen.colorDepth;
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const language = navigator.language;
+    const platform = navigator.platform;
+    const userAgent = navigator.userAgent;
+    
+    // Display browser info
+    const browserInfo = document.getElementById('browser-info');
+    const browserName = userAgent.includes('Chrome') ? 'Chrome' : 
+                        userAgent.includes('Firefox') ? 'Firefox' : 
+                        userAgent.includes('Safari') ? 'Safari' : 
+                        userAgent.includes('Edge') ? 'Edge' : 'Unknown Browser';
+    const osName = platform.includes('Win') ? 'Windows' : 
+                   platform.includes('Mac') ? 'MacOS' : 
+                   platform.includes('Linux') ? 'Linux' : 'Unknown OS';
+    
+    browserInfo.textContent = `${browserName} on ${osName}`;
+    
+    // Create a fingerprint hash (this is a simplified version)
+    const fingerprintData = `${screenResolution}|${colorDepth}|${timezone}|${language}|${platform}|${userAgent}`;
+    let fingerprint = 0;
+    for (let i = 0; i < fingerprintData.length; i++) {
+        fingerprint = ((fingerprint << 5) - fingerprint) + fingerprintData.charCodeAt(i);
+        fingerprint = fingerprint & fingerprint; // Convert to 32bit integer
+    }
+    
+    document.getElementById('device_fingerprint').value = fingerprint.toString();
+    return fingerprint;
+}
+
+// Geolocation verification
+function checkGeolocation() {
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            function(position) {
+                const latitude = position.coords.latitude;
+                const longitude = position.coords.longitude;
+                document.getElementById('geo_location').value = `${latitude},${longitude}`;
+                
+                // Get location name from coordinates using reverse geocoding
+                // This is a placeholder - in a real app you would call a geolocation API
+                fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        const locationName = data.address.city || data.address.town || data.address.state || 'your area';
+                        document.getElementById('user-location').textContent = locationName;
+                        document.getElementById('geo-verification').style.display = 'flex';
+                    })
+                    .catch(error => {
+                        console.error('Error fetching location name:', error);
+                        document.getElementById('user-location').textContent = 'your area';
+                        document.getElementById('geo-verification').style.display = 'flex';
+                    });
+            },
+            function(error) {
+                console.error('Error getting geolocation:', error);
+                const geoVerification = document.getElementById('geo-verification');
+                geoVerification.classList.add('warning');
+                geoVerification.querySelector('i').className = 'fas fa-exclamation-triangle';
+                geoVerification.querySelector('h4').textContent = 'Location Not Available';
+                geoVerification.querySelector('p').textContent = 'Enable location services for enhanced security';
+                geoVerification.style.display = 'flex';
+            }
+        );
+    } else {
+        console.error('Geolocation not supported by this browser');
+    }
+}
+
+// CAPTCHA generation using server-side API
+function refreshCaptcha() {
+    fetch('/auth/captcha')
+        .then(response => response.json())
+        .then(data => {
+            const canvas = document.getElementById('captcha-canvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Clear the canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw background
+            ctx.fillStyle = '#f1f5f9';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw random lines for distortion
+            for (let i = 0; i < 5; i++) {
+                ctx.beginPath();
+                ctx.moveTo(Math.random() * canvas.width, Math.random() * canvas.height);
+                ctx.lineTo(Math.random() * canvas.width, Math.random() * canvas.height);
+                ctx.strokeStyle = getRandomColor(0.2);
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+            
+            // Draw the text
+            const captchaText = data.captcha;
+            ctx.font = 'bold 32px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            // Draw each character with different styles
+            const textWidth = ctx.measureText(captchaText).width;
+            const startX = (canvas.width - textWidth) / 2 + 15;
+            
+            for (let i = 0; i < captchaText.length; i++) {
+                // Random position adjustments
+                const charX = startX + i * 25 + (Math.random() * 10 - 5);
+                const charY = canvas.height / 2 + (Math.random() * 10 - 5);
+                
+                // Random rotation
+                const rotation = (Math.random() - 0.5) * 0.4;
+                
+                ctx.save();
+                ctx.translate(charX, charY);
+                ctx.rotate(rotation);
+                ctx.fillStyle = getRandomColor(1);
+                ctx.fillText(captchaText[i], 0, 0);
+                ctx.restore();
+            }
+            
+            // Add noise (dots)
+            for (let i = 0; i < 100; i++) {
+                ctx.fillStyle = getRandomColor(0.8);
+                ctx.beginPath();
+                ctx.arc(
+                    Math.random() * canvas.width,
+                    Math.random() * canvas.height,
+                    1,
+                    0,
+                    Math.PI * 2
+                );
+                ctx.fill();
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching CAPTCHA:', error);
+        });
+}
+
+function getRandomColor(alpha) {
+    const colors = [
+        `rgba(79, 70, 229, ${alpha})`,  // primary
+        `rgba(14, 165, 233, ${alpha})`, // secondary
+        `rgba(16, 185, 129, ${alpha})`, // success
+        `rgba(245, 158, 11, ${alpha})`, // warning
+        `rgba(239, 68, 68, ${alpha})`   // danger
+    ];
+    return colors[Math.floor(Math.random() * colors.length)];
+}
+
+// Initialize security features
+document.addEventListener('DOMContentLoaded', function() {
+    generateFingerprint();
+    checkGeolocation();
+    
+    // Initialize CAPTCHA if needed
+    if (document.getElementById('captcha-section') && !document.getElementById('captcha-section').classList.contains('hidden')) {
+        refreshCaptcha();
+    }
+});
 </script>
 {% endblock %} 
