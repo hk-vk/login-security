@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Login - Adaptive Login Security System{% endblock %}
+{% block title %}{% if is_admin_login %}Admin Login{% else %}Login{% endif %} - Adaptive Login Security System{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -101,6 +101,25 @@
 .captcha-refresh:hover {
     transform: rotate(30deg);
 }
+
+{% if is_admin_login %}
+.auth-card {
+    border-top: 4px solid #4F46E5;
+}
+
+.admin-login-badge {
+    display: inline-block;
+    background-color: #4F46E5;
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: 1rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+{% endif %}
 </style>
 {% endblock %}
 
@@ -108,8 +127,14 @@
 <div class="auth-container">
     <div class="auth-card">
         <div class="auth-header">
+            {% if is_admin_login %}
+            <span class="admin-login-badge">Admin Area</span>
+            <h2>Administrator Login</h2>
+            <p>Sign in to access the admin dashboard</p>
+            {% else %}
             <h2>Welcome Back</h2>
             <p>Sign in to your account</p>
+            {% endif %}
         </div>
 
         {% if error %}
@@ -144,7 +169,7 @@
             </div>
         </div>
 
-        <form method="POST" action="/auth/login" class="auth-form">
+        <form method="POST" action="/auth/login{% if admin_redirect %}?redirect=/admin/dashboard{% endif %}" class="auth-form">
             <div class="form-group">
                 <label for="email">Email Address</label>
                 <div class="input-group">

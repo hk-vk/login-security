@@ -4,9 +4,10 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.middleware.authentication import AuthenticationMiddleware
 from starlette.authentication import AuthenticationBackend, SimpleUser, AuthCredentials
-from starlette.responses import HTMLResponse
+from starlette.responses import HTMLResponse, RedirectResponse
 import os
 from dotenv import load_dotenv
+from starlette import status
 
 # Import database
 from app.database.database import engine, Base
@@ -66,6 +67,25 @@ app.include_router(auth)
 app.include_router(users)
 app.include_router(security)
 app.include_router(admin, prefix="/admin")
+
+# Admin login intercept
+@app.get("/admin", response_class=HTMLResponse)
+async def admin_login_intercept(request: Request):
+    """Intercept requests to /admin and redirect non-authenticated users to admin login"""
+    # Check if user is authenticated
+    if not hasattr(request, "user") or not request.user.is_authenticated:
+        # User is not authenticated, render admin login page
+        return templates.TemplateResponse(
+            "auth/login.html",
+            {
+                "request": request,
+                "is_admin_login": True,
+                "admin_redirect": True
+            }
+        )
+    # Check if user is admin
+    # For authenticated users, redirect to admin dashboard
+    return RedirectResponse(url="/admin/dashboard", status_code=status.HTTP_303_SEE_OTHER)
 
 @app.get("/", response_class=HTMLResponse)
 @app.head("/")

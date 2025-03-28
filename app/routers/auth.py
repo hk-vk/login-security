@@ -169,9 +169,11 @@ async def login(
     db: Session = Depends(get_db),
     email: str = Form(...),
     password: str = Form(...),
+    remember: bool = Form(False),
+    captcha_code: str = Form(None),
     device_fingerprint: str = Form(None),
     geo_location: str = Form(None),
-    captcha_code: str = Form(None)
+    redirect: str = Form(None)
 ):
     """Handle the login form submission"""
     # Find the user
@@ -305,7 +307,9 @@ async def login(
     token, session = create_session(db, user, request)
     
     # Store token in cookies or session
-    response = RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
+    # Check if there's a redirect URL (for admin login)
+    redirect_url = redirect if redirect else "/"
+    response = RedirectResponse(url=redirect_url, status_code=status.HTTP_303_SEE_OTHER)
     response.set_cookie(key="access_token", value=f"Bearer {token}", httponly=True)
     
     return response
