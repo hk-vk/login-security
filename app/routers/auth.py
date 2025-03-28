@@ -265,7 +265,7 @@ async def login(
         # Check if this is a known device
         existing_device = db.query(Device).filter(
             Device.user_id == user.id,
-            Device.fingerprint == device_fingerprint
+            Device.device_fingerprint == device_fingerprint
         ).first()
         
         # If not a known device and high risk, might require additional verification
