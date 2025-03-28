@@ -176,15 +176,6 @@ async def login(
     
     # Check if the user exists
     if not user:
-        # Create a login history entry for failed login
-        history = create_login_history(
-            db=db,
-            user=None,
-            success=False,
-            request=request,
-            failure_reason="User not found"
-        )
-        
         return templates.TemplateResponse(
             "auth/login.html", 
             {
