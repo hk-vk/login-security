@@ -110,20 +110,21 @@ app = FastAPI(
 )
 
 # ===============================================================================
-# IMPORTANT: Order matters!
-# 1. First mount static files
-# 2. Then set up templates
-# 3. Add all middleware (CORS, Session, Auth)
-# 4. Define HTTP middleware
-# 5. Import routers - must be after middleware setup
-# 6. Include routers
+# CRITICAL: Middleware order is fixed to match Starlette expectations
+# Authentication middleware MUST be installed FIRST
 # ===============================================================================
 
-# Mount static files first
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+# Add authentication middleware FIRST
+app.add_middleware(
+    AuthenticationMiddleware, 
+    backend=TokenAuthBackend()
+)
 
-# Templates directory
-templates = Jinja2Templates(directory="app/templates")
+# Add session middleware
+app.add_middleware(
+    SessionMiddleware, 
+    secret_key="your-secret-key-here-make-sure-to-change-in-production"
+)
 
 # Add CORS middleware
 app.add_middleware(
@@ -134,17 +135,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Add session middleware
-app.add_middleware(
-    SessionMiddleware, 
-    secret_key="your-secret-key-here-make-sure-to-change-in-production"
-)
+# Mount static files
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
-# Add authentication middleware BEFORE including any routers
-app.add_middleware(
-    AuthenticationMiddleware, 
-    backend=TokenAuthBackend()
-)
+# Templates directory
+templates = Jinja2Templates(directory="app/templates")
 
 # Define middleware after all middleware setup
 @app.middleware("http")
@@ -214,8 +209,15 @@ async def custom_404_handler(request: Request, exc):
         {"request": request, "path": request.url.path}
     )
 
+# Add support for GET and HEAD methods
 @app.get("/", response_class=HTMLResponse)
+@app.head("/")
 async def read_root(request: Request):
+    """Home page - supports both GET and HEAD methods"""
+    # If HEAD request, return empty response with OK status
+    if request.method == "HEAD":
+        return HTMLResponse(content="")
+    # For GET requests, return the full template
     return templates.TemplateResponse("home.html", {"request": request})
 
 @app.on_event("startup")
