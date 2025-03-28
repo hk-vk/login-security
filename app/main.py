@@ -1,13 +1,10 @@
-from fastapi import FastAPI, Request, Depends, HTTPException, status
+from fastapi import FastAPI, Request, Depends, HTTPException, status, Cookie
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, RedirectResponse
 import uvicorn
-from starlette.authentication import requires, AuthCredentials, AuthenticationBackend
-from starlette.middleware.authentication import AuthenticationMiddleware
 from starlette.middleware.sessions import SessionMiddleware
-from starlette.types import ASGIApp, Receive, Scope, Send
 from typing import Optional, Callable
 import importlib
 import os
@@ -16,9 +13,6 @@ import base64
 from dotenv import load_dotenv
 from sqlalchemy.orm import Session
 from app.database.database import get_db
-
-# Import custom user class
-from app.starlette.authentication import CustomUser
 
 # Import database
 from app.database.database import engine, Base
@@ -37,70 +31,47 @@ load_dotenv()
 # Create tables
 Base.metadata.create_all(bind=engine)
 
-# Define TokenAuthBackend here instead of importing it
-class TokenAuthBackend(AuthenticationBackend):
-    async def authenticate(self, request):
-        from sqlalchemy.orm import Session
-        from app.database.database import SessionLocal
-        from app.models.user import User
-        from app.models.session import Session as DbSession
-        from app.core.security import verify_token
-        from datetime import datetime
-
-        if "access_token" not in request.cookies:
-            return AuthCredentials(["unauthenticated"]), None
+# Helper function to check if user is authenticated and admin
+async def is_admin(request: Request, access_token: Optional[str] = Cookie(None)):
+    from app.database.database import SessionLocal
+    from app.models.user import User
+    from app.models.session import Session as DbSession
+    from datetime import datetime
+    
+    # No token, not authenticated
+    if not access_token:
+        return False
+    
+    if access_token.startswith("Bearer "):
+        access_token = access_token[7:]  # Remove "Bearer " prefix
+    
+    # Get a database session
+    db = SessionLocal()
+    try:
+        # Look up the token in the sessions table
+        session = db.query(DbSession).filter(
+            DbSession.token == access_token,
+            DbSession.is_active == True,
+            DbSession.expires_at > datetime.utcnow()
+        ).first()
         
-        token = request.cookies["access_token"]
-        if token and token.startswith("Bearer "):
-            token = token[7:]  # Remove "Bearer " prefix
-            print(f"DEBUG: AUTH - Verifying token: {token[:10]}...")
-            
-            # Get a database session
-            db = SessionLocal()
-            try:
-                # Look up the token in the sessions table
-                session = db.query(DbSession).filter(
-                    DbSession.token == token,
-                    DbSession.is_active == True,
-                    DbSession.expires_at > datetime.utcnow()
-                ).first()
-                
-                if not session:
-                    print("DEBUG: AUTH - No valid session found for token")
-                    return AuthCredentials(["unauthenticated"]), None
-                
-                # Get the user
-                user = db.query(User).filter(User.id == session.user_id).first()
-                if not user:
-                    print("DEBUG: AUTH - User not found")
-                    return AuthCredentials(["unauthenticated"]), None
-                if not user.is_active:
-                    print(f"DEBUG: AUTH - User {user.email} is not active")
-                    return AuthCredentials(["unauthenticated"]), None
-                
-                print(f"DEBUG: AUTH - Found user: {user.email}, superuser: {user.is_superuser}")
-                
-                # Update session last active time
-                session.last_active_at = datetime.utcnow()
-                db.commit()
-                
-                # Return user credentials
-                scopes = ["authenticated"]
-                if user.is_superuser:
-                    scopes.append("admin")
-                    print(f"DEBUG: AUTH - Adding admin scope for {user.email}")
-                
-                print(f"DEBUG: AUTH - Creating authentication with scopes: {scopes}")
-                return AuthCredentials(scopes), CustomUser(
-                    username=user.email,
-                    display_name=f"{user.first_name} {user.last_name}".strip(),
-                    user_id=user.id,
-                    is_superuser=user.is_superuser
-                )
-            finally:
-                db.close()
+        if not session:
+            return False
         
-        return AuthCredentials(["unauthenticated"]), None
+        # Get the user
+        user = db.query(User).filter(User.id == session.user_id).first()
+        if not user or not user.is_active or not user.is_superuser:
+            return False
+        
+        # Update session last active time
+        session.last_active_at = datetime.utcnow()
+        db.commit()
+        
+        # Store user in request state for later use
+        request.state.user = user
+        return True
+    finally:
+        db.close()
 
 # Initialize the FastAPI app
 app = FastAPI(
@@ -115,12 +86,7 @@ templates = Jinja2Templates(directory="app/templates")
 # Mount static files
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
-# Add middleware in the correct order
-app.add_middleware(
-    AuthenticationMiddleware,
-    backend=TokenAuthBackend()
-)
-
+# Add middleware in the simplified order
 app.add_middleware(
     SessionMiddleware,
     secret_key="your-secret-key-here-make-sure-to-change-in-production"
@@ -134,53 +100,37 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Admin middleware as a function
-@app.middleware("http")
-async def admin_auth_middleware(request: Request, call_next):
-    try:
-        if request.url.path.startswith("/admin"):
-            # Check if user is authenticated
-            if not request.user.is_authenticated:
-                return templates.TemplateResponse(
-                    "admin/login.html",
-                    {"request": request, "redirect_url": request.url.path}
-                )
-
-            # Check admin status
-            from app.models.user import User
-            from app.database.database import get_db
-            
-            db = next(get_db())
-            try:
-                db_user = db.query(User).filter(User.email == request.user.username).first()
-                
-                if not db_user or not db_user.is_superuser:
-                    return HTMLResponse(
-                        status_code=status.HTTP_403_FORBIDDEN,
-                        content="Access denied. You must be an admin to access this page."
-                    )
-                
-                if request.url.path in ["/admin", "/admin/"]:
-                    return RedirectResponse(url="/admin/dashboard")
-            finally:
-                db.close()
-
-    except AssertionError as e:
-        if str(e) == "AuthenticationMiddleware must be installed to access request.user":
-            logger.error("Authentication middleware not properly initialized")
-            return HTMLResponse(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                content="Server configuration error. Please try again later."
-            )
-        raise
-
-    response = await call_next(request)
-    return response
-
-# Now import routers after middleware is set up
+# Now import routers
 from app.routers import auth, admin, users, security
 
-# Include routers AFTER middleware setup
+# Add specific admin routes to handle authentication
+@app.get("/admin", response_class=HTMLResponse)
+@app.get("/admin/", response_class=HTMLResponse)
+async def admin_root(request: Request, access_token: Optional[str] = Cookie(None)):
+    # Check if user is authenticated and admin
+    if await is_admin(request, access_token):
+        return RedirectResponse(url="/admin/dashboard")
+    
+    # If not authenticated or not admin, render admin login page
+    return templates.TemplateResponse(
+        "admin/login.html", 
+        {"request": request, "redirect_url": "/admin/dashboard"}
+    )
+
+@app.get("/admin/{path:path}", response_class=HTMLResponse)
+async def admin_pages(path: str, request: Request, access_token: Optional[str] = Cookie(None)):
+    # Check if user is authenticated and admin
+    if await is_admin(request, access_token):
+        # Continue to the admin route
+        pass
+    else:
+        # If not authenticated or not admin, render admin login page
+        return templates.TemplateResponse(
+            "admin/login.html", 
+            {"request": request, "redirect_url": f"/admin/{path}"}
+        )
+
+# Include routers
 app.include_router(auth)              # Auth router
 app.include_router(admin, prefix="/admin")  # Admin router
 app.include_router(users)             # Users router
@@ -188,16 +138,9 @@ app.include_router(security)          # Security router
 
 @app.exception_handler(404)
 async def custom_404_handler(request: Request, exc):
-    # For admin routes, render admin login if not authenticated
+    # For admin routes, check authentication
     if request.url.path.startswith("/admin/"):
-        try:
-            if not request.user or not request.user.is_authenticated:
-                return templates.TemplateResponse(
-                    "admin/login.html", 
-                    {"request": request, "redirect_url": request.url.path}
-                )
-        except AssertionError:
-            # If authentication middleware is not available, redirect to login
+        if not await is_admin(request, request.cookies.get("access_token")):
             return templates.TemplateResponse(
                 "admin/login.html", 
                 {"request": request, "redirect_url": request.url.path}
