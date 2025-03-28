@@ -109,25 +109,23 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# Mount static files first
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
-
 # Templates directory
 templates = Jinja2Templates(directory="app/templates")
 
-# Add authentication middleware FIRST
+# Mount static files
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
+# Add middleware in the correct order
 app.add_middleware(
-    AuthenticationMiddleware, 
+    AuthenticationMiddleware,
     backend=TokenAuthBackend()
 )
 
-# Add session middleware SECOND
 app.add_middleware(
-    SessionMiddleware, 
+    SessionMiddleware,
     secret_key="your-secret-key-here-make-sure-to-change-in-production"
 )
 
-# Add CORS middleware LAST
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -136,36 +134,48 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Define admin middleware as a function instead of a class
+# Admin middleware as a function
 @app.middleware("http")
 async def admin_auth_middleware(request: Request, call_next):
-    if request.url.path.startswith("/admin"):
-        if not hasattr(request.state, "user") or not request.user.is_authenticated:
-            return templates.TemplateResponse(
-                "admin/login.html",
-                {"request": request, "redirect_url": request.url.path}
-            )
-
-        # Check admin status
-        from app.models.user import User
-        from app.database.database import get_db
-        
-        db = next(get_db())
-        try:
-            db_user = db.query(User).filter(User.email == request.user.username).first()
-            
-            if not db_user or not db_user.is_superuser:
-                return HTMLResponse(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    content="Access denied. You must be an admin to access this page."
+    try:
+        if request.url.path.startswith("/admin"):
+            # Check if user is authenticated
+            if not request.user.is_authenticated:
+                return templates.TemplateResponse(
+                    "admin/login.html",
+                    {"request": request, "redirect_url": request.url.path}
                 )
-            
-            if request.url.path in ["/admin", "/admin/"]:
-                return RedirectResponse(url="/admin/dashboard")
-        finally:
-            db.close()
 
-    return await call_next(request)
+            # Check admin status
+            from app.models.user import User
+            from app.database.database import get_db
+            
+            db = next(get_db())
+            try:
+                db_user = db.query(User).filter(User.email == request.user.username).first()
+                
+                if not db_user or not db_user.is_superuser:
+                    return HTMLResponse(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        content="Access denied. You must be an admin to access this page."
+                    )
+                
+                if request.url.path in ["/admin", "/admin/"]:
+                    return RedirectResponse(url="/admin/dashboard")
+            finally:
+                db.close()
+
+    except AssertionError as e:
+        if str(e) == "AuthenticationMiddleware must be installed to access request.user":
+            logger.error("Authentication middleware not properly initialized")
+            return HTMLResponse(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                content="Server configuration error. Please try again later."
+            )
+        raise
+
+    response = await call_next(request)
+    return response
 
 # Now import routers after middleware is set up
 from app.routers import auth, admin, users, security
@@ -180,7 +190,14 @@ app.include_router(security)          # Security router
 async def custom_404_handler(request: Request, exc):
     # For admin routes, render admin login if not authenticated
     if request.url.path.startswith("/admin/"):
-        if not request.user or not request.user.is_authenticated:
+        try:
+            if not request.user or not request.user.is_authenticated:
+                return templates.TemplateResponse(
+                    "admin/login.html", 
+                    {"request": request, "redirect_url": request.url.path}
+                )
+        except AssertionError:
+            # If authentication middleware is not available, redirect to login
             return templates.TemplateResponse(
                 "admin/login.html", 
                 {"request": request, "redirect_url": request.url.path}
