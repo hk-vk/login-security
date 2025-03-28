@@ -157,7 +157,7 @@ async def read_root(request: Request):
     """Handle both GET and HEAD requests for the root path"""
     if request.method == "HEAD":
         return HTMLResponse("")
-    return templates.TemplateResponse("home.html", {"request": request})
+    return templates.TemplateResponse("index.html", {"request": request})
 
 @app.on_event("startup")
 async def startup_event():
