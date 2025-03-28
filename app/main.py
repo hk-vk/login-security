@@ -7,7 +7,8 @@ import uvicorn
 from starlette.authentication import requires, AuthCredentials, AuthenticationBackend
 from starlette.middleware.authentication import AuthenticationMiddleware
 from starlette.middleware.sessions import SessionMiddleware
-from typing import Optional
+from starlette.types import ASGIApp, Receive, Scope, Send
+from typing import Optional, Callable
 import importlib
 import os
 import logging
@@ -43,11 +44,11 @@ class TokenAuthBackend(AuthenticationBackend):
         from app.database.database import SessionLocal
         from app.models.user import User
         from app.models.session import Session as DbSession
+        from app.core.security import verify_token
         from datetime import datetime
 
         if "access_token" not in request.cookies:
-            # Return empty auth credentials so request.user exists but is not authenticated
-            return AuthCredentials([]), CustomUser(username="", display_name="", user_id=None, is_superuser=False)
+            return AuthCredentials(["unauthenticated"]), None
         
         token = request.cookies["access_token"]
         if token and token.startswith("Bearer "):
@@ -66,16 +67,16 @@ class TokenAuthBackend(AuthenticationBackend):
                 
                 if not session:
                     print("DEBUG: AUTH - No valid session found for token")
-                    return AuthCredentials([]), CustomUser(username="", display_name="", user_id=None, is_superuser=False)
+                    return AuthCredentials(["unauthenticated"]), None
                 
                 # Get the user
                 user = db.query(User).filter(User.id == session.user_id).first()
                 if not user:
                     print("DEBUG: AUTH - User not found")
-                    return AuthCredentials([]), CustomUser(username="", display_name="", user_id=None, is_superuser=False)
+                    return AuthCredentials(["unauthenticated"]), None
                 if not user.is_active:
                     print(f"DEBUG: AUTH - User {user.email} is not active")
-                    return AuthCredentials([]), CustomUser(username="", display_name="", user_id=None, is_superuser=False)
+                    return AuthCredentials(["unauthenticated"]), None
                 
                 print(f"DEBUG: AUTH - Found user: {user.email}, superuser: {user.is_superuser}")
                 
@@ -99,8 +100,7 @@ class TokenAuthBackend(AuthenticationBackend):
             finally:
                 db.close()
         
-        # Return empty auth credentials so request.user exists but is not authenticated
-        return AuthCredentials([]), CustomUser(username="", display_name="", user_id=None, is_superuser=False)
+        return AuthCredentials(["unauthenticated"]), None
 
 # Initialize the FastAPI app
 app = FastAPI(
@@ -109,10 +109,11 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# ===============================================================================
-# CRITICAL: Middleware order is fixed to match Starlette expectations
-# Authentication middleware MUST be installed FIRST
-# ===============================================================================
+# Mount static files first
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
+# Templates directory
+templates = Jinja2Templates(directory="app/templates")
 
 # Add authentication middleware FIRST
 app.add_middleware(
@@ -120,13 +121,13 @@ app.add_middleware(
     backend=TokenAuthBackend()
 )
 
-# Add session middleware
+# Add session middleware SECOND
 app.add_middleware(
     SessionMiddleware, 
     secret_key="your-secret-key-here-make-sure-to-change-in-production"
 )
 
-# Add CORS middleware
+# Add CORS middleware LAST
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -135,53 +136,35 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount static files
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
-
-# Templates directory
-templates = Jinja2Templates(directory="app/templates")
-
-# Define middleware after all middleware setup
+# Define admin middleware as a function instead of a class
 @app.middleware("http")
-async def admin_login_intercept(request: Request, call_next):
-    """
-    Intercept requests to /admin and check if the user is authenticated and an admin
-    """
-    # Debug the requested URL path
-    print(f"Processing request for: {request.url.path}")
-    
-    # Intercept requests to /admin
-    if request.url.path == "/admin" or request.url.path == "/admin/":
-        # Check if user is authenticated
-        user = request.user
+async def admin_auth_middleware(request: Request, call_next):
+    if request.url.path.startswith("/admin"):
+        if not hasattr(request.state, "user") or not request.user.is_authenticated:
+            return templates.TemplateResponse(
+                "admin/login.html",
+                {"request": request, "redirect_url": request.url.path}
+            )
+
+        # Check admin status
+        from app.models.user import User
+        from app.database.database import get_db
         
-        if user and user.is_authenticated:
-            # Get the user from the database to check if they're an admin
-            from app.models.user import User
-            from app.database.database import get_db
+        db = next(get_db())
+        try:
+            db_user = db.query(User).filter(User.email == request.user.username).first()
             
-            db = next(get_db())
-            db_user = db.query(User).filter(User.email == user.username).first()
-            
-            if db_user and db_user.is_superuser:
-                # Admin user is authenticated, redirect to dashboard
-                print(f"Admin user {user.username} authenticated, redirecting to dashboard")
-                return RedirectResponse(url="/admin/dashboard")
-            else:
-                # User is authenticated but not an admin, return 403
-                print(f"User {user.username} not an admin, returning 403")
+            if not db_user or not db_user.is_superuser:
                 return HTMLResponse(
                     status_code=status.HTTP_403_FORBIDDEN,
                     content="Access denied. You must be an admin to access this page."
                 )
-        
-        # Not authenticated or not admin, render admin login page
-        print("User not authenticated, rendering admin login page")
-        return templates.TemplateResponse(
-            "admin/login.html", 
-            {"request": request, "redirect_url": "/admin/dashboard"}
-        )
-    
+            
+            if request.url.path in ["/admin", "/admin/"]:
+                return RedirectResponse(url="/admin/dashboard")
+        finally:
+            db.close()
+
     return await call_next(request)
 
 # Now import routers after middleware is set up
@@ -197,8 +180,7 @@ app.include_router(security)          # Security router
 async def custom_404_handler(request: Request, exc):
     # For admin routes, render admin login if not authenticated
     if request.url.path.startswith("/admin/"):
-        user = request.user
-        if not user or not user.is_authenticated:
+        if not request.user or not request.user.is_authenticated:
             return templates.TemplateResponse(
                 "admin/login.html", 
                 {"request": request, "redirect_url": request.url.path}
@@ -209,15 +191,12 @@ async def custom_404_handler(request: Request, exc):
         {"request": request, "path": request.url.path}
     )
 
-# Add support for GET and HEAD methods
 @app.get("/", response_class=HTMLResponse)
 @app.head("/")
 async def read_root(request: Request):
-    """Home page - supports both GET and HEAD methods"""
-    # If HEAD request, return empty response with OK status
+    """Handle both GET and HEAD requests for the root path"""
     if request.method == "HEAD":
-        return HTMLResponse(content="")
-    # For GET requests, return the full template
+        return HTMLResponse("")
     return templates.TemplateResponse("home.html", {"request": request})
 
 @app.on_event("startup")
