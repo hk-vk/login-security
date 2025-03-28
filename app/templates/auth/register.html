@@ -3,59 +3,125 @@
 {% block title %}Register - Adaptive Login Security System{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center mt-5">
-    <div class="col-md-6">
-        <div class="card shadow">
-            <div class="card-header bg-primary text-white">
-                <h4 class="mb-0">Create an Account</h4>
-            </div>
-            <div class="card-body">
-                {% if error %}
-                <div class="alert alert-danger">
-                    {{ error }}
+<div class="auth-container">
+    <div class="auth-card">
+        <div class="auth-header">
+            <h2>Create Account</h2>
+            <p>Join our secure platform</p>
+        </div>
+
+        {% if error %}
+        <div class="alert alert-error">
+            {{ error }}
+        </div>
+        {% endif %}
+
+        <form method="POST" action="/auth/register" class="auth-form">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="first_name">First Name</label>
+                    <div class="input-group">
+                        <i class="fas fa-user"></i>
+                        <input type="text" id="first_name" name="first_name" 
+                               value="{{ first_name or '' }}" placeholder="Enter your first name">
+                    </div>
                 </div>
-                {% endif %}
 
-                <form method="post" action="/auth/register">
-                    <div class="mb-3">
-                        <label for="email" class="form-label">Email Address</label>
-                        <input type="email" class="form-control" id="email" name="email" required
-                            value="{{ email or '' }}">
+                <div class="form-group">
+                    <label for="last_name">Last Name</label>
+                    <div class="input-group">
+                        <i class="fas fa-user"></i>
+                        <input type="text" id="last_name" name="last_name" 
+                               value="{{ last_name or '' }}" placeholder="Enter your last name">
                     </div>
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="first_name" class="form-label">First Name</label>
-                            <input type="text" class="form-control" id="first_name" name="first_name"
-                                value="{{ first_name or '' }}">
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="last_name" class="form-label">Last Name</label>
-                            <input type="text" class="form-control" id="last_name" name="last_name"
-                                value="{{ last_name or '' }}">
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label for="password" class="form-label">Password</label>
-                        <input type="password" class="form-control" id="password" name="password" required>
-                        <div class="form-text">
-                            Password must be at least 8 characters and include uppercase, lowercase, numbers, and special characters.
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label for="password_confirm" class="form-label">Confirm Password</label>
-                        <input type="password" class="form-control" id="password_confirm" name="password_confirm" required>
-                    </div>
-                    <div class="d-grid">
-                        <button type="submit" class="btn btn-primary">Register</button>
-                    </div>
-                </form>
-
-                <hr>
-                <div class="text-center">
-                    <p>Already have an account? <a href="/auth/login">Login here</a></p>
                 </div>
             </div>
+
+            <div class="form-group">
+                <label for="email">Email Address</label>
+                <div class="input-group">
+                    <i class="fas fa-envelope"></i>
+                    <input type="email" id="email" name="email" required 
+                           value="{{ email or '' }}" placeholder="Enter your email">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <div class="input-group">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" id="password" name="password" required
+                           placeholder="Create a password">
+                    <button type="button" class="password-toggle" onclick="togglePassword('password')">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+                <div class="password-requirements">
+                    <p>Password must contain:</p>
+                    <ul>
+                        <li id="length">At least 8 characters</li>
+                        <li id="uppercase">One uppercase letter</li>
+                        <li id="lowercase">One lowercase letter</li>
+                        <li id="number">One number</li>
+                        <li id="special">One special character</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="password_confirm">Confirm Password</label>
+                <div class="input-group">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" id="password_confirm" name="password_confirm" required
+                           placeholder="Confirm your password">
+                    <button type="button" class="password-toggle" onclick="togglePassword('password_confirm')">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="form-group terms">
+                <label class="checkbox-container">
+                    <input type="checkbox" name="terms" id="terms" required>
+                    <span class="checkmark"></span>
+                    I agree to the <a href="/terms">Terms of Service</a> and <a href="/privacy">Privacy Policy</a>
+                </label>
+            </div>
+
+            <button type="submit" class="btn-primary">Create Account</button>
+        </form>
+
+        <div class="auth-footer">
+            <p>Already have an account? <a href="/auth/login">Sign In</a></p>
         </div>
     </div>
 </div>
+
+<script>
+function togglePassword(inputId) {
+    const input = document.getElementById(inputId);
+    const button = input.nextElementSibling;
+    const icon = button.querySelector('i');
+    
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
+    } else {
+        input.type = 'password';
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
+    }
+}
+
+document.getElementById('password').addEventListener('input', function(e) {
+    const password = e.target.value;
+    
+    document.getElementById('length').classList.toggle('valid', password.length >= 8);
+    document.getElementById('uppercase').classList.toggle('valid', /[A-Z]/.test(password));
+    document.getElementById('lowercase').classList.toggle('valid', /[a-z]/.test(password));
+    document.getElementById('number').classList.toggle('valid', /\d/.test(password));
+    document.getElementById('special').classList.toggle('valid', /[!@#$%^&*(),.?":{}|<>]/.test(password));
+});
+</script>
 {% endblock %} 

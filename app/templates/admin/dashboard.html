@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="admin-container">
+    <div class="admin-sidebar">
+        <div class="sidebar-header">
+            <i class="fas fa-shield-alt"></i>
+            <h3>Admin Panel</h3>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="/admin/dashboard" class="active">
+                <i class="fas fa-chart-line"></i>
+                Dashboard
+            </a>
+            <a href="/admin/users">
+                <i class="fas fa-users"></i>
+                Users
+            </a>
+            <a href="/admin/security">
+                <i class="fas fa-lock"></i>
+                Security
+            </a>
+            <a href="/admin/logs">
+                <i class="fas fa-history"></i>
+                Activity Logs
+            </a>
+            <a href="/admin/settings">
+                <i class="fas fa-cog"></i>
+                Settings
+            </a>
+        </nav>
+    </div>
+
+    <div class="admin-main">
+        <div class="admin-header">
+            <h2>Dashboard Overview</h2>
+            <div class="header-actions">
+                <button class="btn-secondary" onclick="refreshStats()">
+                    <i class="fas fa-sync"></i> Refresh
+                </button>
+                <div class="date-filter">
+                    <select id="timeRange" onchange="updateStats()">
+                        <option value="today">Today</option>
+                        <option value="week">This Week</option>
+                        <option value="month">This Month</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon users">
+                    <i class="fas fa-users"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>Total Users</h3>
+                    <p class="stat-value">{{ stats.total_users }}</p>
+                    <p class="stat-change positive">+{{ stats.new_users }} today</p>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon sessions">
+                    <i class="fas fa-desktop"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>Active Sessions</h3>
+                    <p class="stat-value">{{ stats.active_sessions }}</p>
+                    <p class="stat-change">{{ stats.total_sessions }} total</p>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon security">
+                    <i class="fas fa-shield-alt"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>Security Events</h3>
+                    <p class="stat-value">{{ stats.security_events }}</p>
+                    <p class="stat-change negative">{{ stats.critical_events }} critical</p>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon logins">
+                    <i class="fas fa-sign-in-alt"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>Login Attempts</h3>
+                    <p class="stat-value">{{ stats.login_attempts }}</p>
+                    <p class="stat-change negative">{{ stats.failed_logins }} failed</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="charts-grid">
+            <div class="chart-card">
+                <h3>User Activity</h3>
+                <div class="chart-container">
+                    <canvas id="userActivityChart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-card">
+                <h3>Security Incidents</h3>
+                <div class="chart-container">
+                    <canvas id="securityChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="recent-activity">
+            <h3>Recent Activity</h3>
+            <div class="activity-list">
+                {% for activity in recent_activities %}
+                <div class="activity-item">
+                    <div class="activity-icon {{ activity.type }}">
+                        <i class="fas fa-{{ activity.icon }}"></i>
+                    </div>
+                    <div class="activity-details">
+                        <p class="activity-text">{{ activity.description }}</p>
+                        <p class="activity-time">{{ activity.timestamp }}</p>
+                    </div>
+                    <div class="activity-status {{ activity.status }}">
+                        {{ activity.status }}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Initialize charts
+function initCharts() {
+    // User Activity Chart
+    const userCtx = document.getElementById('userActivityChart').getContext('2d');
+    new Chart(userCtx, {
+        type: 'line',
+        data: {
+            labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+            datasets: [{
+                label: 'Active Users',
+                data: [65, 59, 80, 81, 56, 55, 40],
+                borderColor: '#3498db',
+                tension: 0.4,
+                fill: false
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false
+        }
+    });
+
+    // Security Incidents Chart
+    const securityCtx = document.getElementById('securityChart').getContext('2d');
+    new Chart(securityCtx, {
+        type: 'bar',
+        data: {
+            labels: ['Failed Logins', 'Suspicious IPs', 'MFA Failures', 'Password Attempts'],
+            datasets: [{
+                label: 'Incidents',
+                data: [12, 19, 3, 5],
+                backgroundColor: '#e74c3c'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false
+        }
+    });
+}
+
+// Refresh stats
+function refreshStats() {
+    // Add your refresh logic here
+    console.log('Refreshing stats...');
+}
+
+// Update stats based on time range
+function updateStats() {
+    const timeRange = document.getElementById('timeRange').value;
+    // Add your update logic here
+    console.log('Updating stats for:', timeRange);
+}
+
+// Initialize charts when the page loads
+document.addEventListener('DOMContentLoaded', initCharts);
+</script>
+{% endblock %} 

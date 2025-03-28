@@ -1,0 +1,338 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="admin-container">
+    <div class="admin-sidebar">
+        <div class="sidebar-header">
+            <i class="fas fa-shield-alt"></i>
+            <h3>Admin Panel</h3>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="/admin/dashboard">
+                <i class="fas fa-chart-line"></i>
+                Dashboard
+            </a>
+            <a href="/admin/users">
+                <i class="fas fa-users"></i>
+                Users
+            </a>
+            <a href="/admin/security">
+                <i class="fas fa-lock"></i>
+                Security
+            </a>
+            <a href="/admin/logs">
+                <i class="fas fa-history"></i>
+                Activity Logs
+            </a>
+            <a href="/admin/settings" class="active">
+                <i class="fas fa-cog"></i>
+                Settings
+            </a>
+        </nav>
+    </div>
+
+    <div class="admin-main">
+        <div class="admin-header">
+            <h2>System Settings</h2>
+            <div class="header-actions">
+                <button class="btn-primary" onclick="saveSettings()">
+                    <i class="fas fa-save"></i>
+                    Save Changes
+                </button>
+            </div>
+        </div>
+
+        <div class="settings-grid">
+            <!-- General Settings -->
+            <div class="settings-card">
+                <div class="card-header">
+                    <h3>
+                        <i class="fas fa-sliders-h"></i>
+                        General Settings
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div class="form-group">
+                        <label>Site Name</label>
+                        <input type="text" id="siteName" value="Adaptive Login Security System">
+                    </div>
+                    <div class="form-group">
+                        <label>Admin Email</label>
+                        <input type="email" id="adminEmail" value="admin@example.com">
+                    </div>
+                    <div class="form-group">
+                        <label>Time Zone</label>
+                        <select id="timeZone">
+                            <option value="UTC">UTC</option>
+                            <option value="America/New_York">Eastern Time</option>
+                            <option value="America/Chicago">Central Time</option>
+                            <option value="America/Denver">Mountain Time</option>
+                            <option value="America/Los_Angeles">Pacific Time</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Date Format</label>
+                        <select id="dateFormat">
+                            <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+                            <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+                            <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Email Settings -->
+            <div class="settings-card">
+                <div class="card-header">
+                    <h3>
+                        <i class="fas fa-envelope"></i>
+                        Email Settings
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div class="form-group">
+                        <label>SMTP Server</label>
+                        <input type="text" id="smtpServer" value="smtp.example.com">
+                    </div>
+                    <div class="form-group">
+                        <label>SMTP Port</label>
+                        <input type="number" id="smtpPort" value="587">
+                    </div>
+                    <div class="form-group">
+                        <label>SMTP Username</label>
+                        <input type="text" id="smtpUsername">
+                    </div>
+                    <div class="form-group">
+                        <label>SMTP Password</label>
+                        <input type="password" id="smtpPassword">
+                    </div>
+                    <div class="form-group">
+                        <label class="checkbox">
+                            <input type="checkbox" id="smtpTLS" checked>
+                            <span>Use TLS</span>
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <button class="btn-secondary" onclick="testEmailSettings()">
+                            <i class="fas fa-paper-plane"></i>
+                            Test Email Settings
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Backup Settings -->
+            <div class="settings-card">
+                <div class="card-header">
+                    <h3>
+                        <i class="fas fa-database"></i>
+                        Backup Settings
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div class="form-group">
+                        <label>Automatic Backups</label>
+                        <select id="backupFrequency">
+                            <option value="daily">Daily</option>
+                            <option value="weekly">Weekly</option>
+                            <option value="monthly">Monthly</option>
+                            <option value="never">Never</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Backup Time</label>
+                        <input type="time" id="backupTime" value="00:00">
+                    </div>
+                    <div class="form-group">
+                        <label>Retention Period (days)</label>
+                        <input type="number" id="retentionPeriod" value="30" min="1" max="365">
+                    </div>
+                    <div class="form-group">
+                        <label>Backup Storage</label>
+                        <select id="backupStorage">
+                            <option value="local">Local Storage</option>
+                            <option value="s3">Amazon S3</option>
+                            <option value="gcs">Google Cloud Storage</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <button class="btn-secondary" onclick="createBackup()">
+                            <i class="fas fa-download"></i>
+                            Create Backup Now
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Integration Settings -->
+            <div class="settings-card">
+                <div class="card-header">
+                    <h3>
+                        <i class="fas fa-plug"></i>
+                        Integrations
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div class="form-group">
+                        <label>Google Analytics ID</label>
+                        <input type="text" id="analyticsId" placeholder="UA-XXXXXXXXX-X">
+                    </div>
+                    <div class="form-group">
+                        <label>reCAPTCHA Site Key</label>
+                        <input type="text" id="recaptchaSiteKey">
+                    </div>
+                    <div class="form-group">
+                        <label>reCAPTCHA Secret Key</label>
+                        <input type="password" id="recaptchaSecretKey">
+                    </div>
+                    <div class="form-group">
+                        <label>Slack Webhook URL</label>
+                        <input type="url" id="slackWebhook" placeholder="https://hooks.slack.com/...">
+                    </div>
+                    <div class="form-group">
+                        <button class="btn-secondary" onclick="testIntegrations()">
+                            <i class="fas fa-check-circle"></i>
+                            Test Integrations
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function saveSettings() {
+    // Collect all settings
+    const settings = {
+        general: {
+            siteName: document.getElementById('siteName').value,
+            adminEmail: document.getElementById('adminEmail').value,
+            timeZone: document.getElementById('timeZone').value,
+            dateFormat: document.getElementById('dateFormat').value
+        },
+        email: {
+            smtpServer: document.getElementById('smtpServer').value,
+            smtpPort: document.getElementById('smtpPort').value,
+            smtpUsername: document.getElementById('smtpUsername').value,
+            smtpPassword: document.getElementById('smtpPassword').value,
+            smtpTLS: document.getElementById('smtpTLS').checked
+        },
+        backup: {
+            frequency: document.getElementById('backupFrequency').value,
+            time: document.getElementById('backupTime').value,
+            retentionPeriod: document.getElementById('retentionPeriod').value,
+            storage: document.getElementById('backupStorage').value
+        },
+        integrations: {
+            analyticsId: document.getElementById('analyticsId').value,
+            recaptchaSiteKey: document.getElementById('recaptchaSiteKey').value,
+            recaptchaSecretKey: document.getElementById('recaptchaSecretKey').value,
+            slackWebhook: document.getElementById('slackWebhook').value
+        }
+    };
+
+    // Send settings to server
+    fetch('/api/admin/settings', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(settings)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('Settings saved successfully', 'success');
+        } else {
+            showNotification('Failed to save settings', 'error');
+        }
+    })
+    .catch(error => {
+        showNotification('An error occurred', 'error');
+        console.error('Error:', error);
+    });
+}
+
+function testEmailSettings() {
+    // Test email settings
+    fetch('/api/admin/settings/test-email', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            server: document.getElementById('smtpServer').value,
+            port: document.getElementById('smtpPort').value,
+            username: document.getElementById('smtpUsername').value,
+            password: document.getElementById('smtpPassword').value,
+            tls: document.getElementById('smtpTLS').checked
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('Test email sent successfully', 'success');
+        } else {
+            showNotification('Failed to send test email', 'error');
+        }
+    })
+    .catch(error => {
+        showNotification('An error occurred', 'error');
+        console.error('Error:', error);
+    });
+}
+
+function createBackup() {
+    // Create backup
+    fetch('/api/admin/backup/create', {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('Backup created successfully', 'success');
+        } else {
+            showNotification('Failed to create backup', 'error');
+        }
+    })
+    .catch(error => {
+        showNotification('An error occurred', 'error');
+        console.error('Error:', error);
+    });
+}
+
+function testIntegrations() {
+    // Test integrations
+    fetch('/api/admin/settings/test-integrations', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            analyticsId: document.getElementById('analyticsId').value,
+            recaptchaSiteKey: document.getElementById('recaptchaSiteKey').value,
+            recaptchaSecretKey: document.getElementById('recaptchaSecretKey').value,
+            slackWebhook: document.getElementById('slackWebhook').value
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('Integrations tested successfully', 'success');
+        } else {
+            showNotification('Failed to test integrations', 'error');
+        }
+    })
+    .catch(error => {
+        showNotification('An error occurred', 'error');
+        console.error('Error:', error);
+    });
+}
+
+function showNotification(message, type) {
+    // Add notification implementation
+    alert(message);
+}
+</script>
+{% endblock %} 
