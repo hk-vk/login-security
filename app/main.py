@@ -4,7 +4,6 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, RedirectResponse
 import uvicorn
-from app.routers import auth, admin, users, security
 from starlette.authentication import requires, AuthCredentials, AuthenticationBackend
 from starlette.middleware.authentication import AuthenticationMiddleware
 from starlette.middleware.sessions import SessionMiddleware
@@ -44,11 +43,11 @@ class TokenAuthBackend(AuthenticationBackend):
         from app.database.database import SessionLocal
         from app.models.user import User
         from app.models.session import Session as DbSession
-        from app.core.security import verify_token
         from datetime import datetime
 
         if "access_token" not in request.cookies:
-            return None
+            # Return empty auth credentials so request.user exists but is not authenticated
+            return AuthCredentials([]), CustomUser(username="", display_name="", user_id=None, is_superuser=False)
         
         token = request.cookies["access_token"]
         if token and token.startswith("Bearer "):
@@ -67,16 +66,16 @@ class TokenAuthBackend(AuthenticationBackend):
                 
                 if not session:
                     print("DEBUG: AUTH - No valid session found for token")
-                    return None
+                    return AuthCredentials([]), CustomUser(username="", display_name="", user_id=None, is_superuser=False)
                 
                 # Get the user
                 user = db.query(User).filter(User.id == session.user_id).first()
                 if not user:
                     print("DEBUG: AUTH - User not found")
-                    return None
+                    return AuthCredentials([]), CustomUser(username="", display_name="", user_id=None, is_superuser=False)
                 if not user.is_active:
                     print(f"DEBUG: AUTH - User {user.email} is not active")
-                    return None
+                    return AuthCredentials([]), CustomUser(username="", display_name="", user_id=None, is_superuser=False)
                 
                 print(f"DEBUG: AUTH - Found user: {user.email}, superuser: {user.is_superuser}")
                 
@@ -100,7 +99,8 @@ class TokenAuthBackend(AuthenticationBackend):
             finally:
                 db.close()
         
-        return None
+        # Return empty auth credentials so request.user exists but is not authenticated
+        return AuthCredentials([]), CustomUser(username="", display_name="", user_id=None, is_superuser=False)
 
 # Initialize the FastAPI app
 app = FastAPI(
@@ -109,7 +109,17 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# Mount static files
+# ===============================================================================
+# IMPORTANT: Order matters!
+# 1. First mount static files
+# 2. Then set up templates
+# 3. Add all middleware (CORS, Session, Auth)
+# 4. Define HTTP middleware
+# 5. Import routers - must be after middleware setup
+# 6. Include routers
+# ===============================================================================
+
+# Mount static files first
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 # Templates directory
@@ -130,19 +140,13 @@ app.add_middleware(
     secret_key="your-secret-key-here-make-sure-to-change-in-production"
 )
 
-# Add authentication middleware - must be before any route that uses request.user
+# Add authentication middleware BEFORE including any routers
 app.add_middleware(
     AuthenticationMiddleware, 
     backend=TokenAuthBackend()
 )
 
-# Include routers
-app.include_router(auth)              # Auth router
-app.include_router(admin, prefix="/admin")  # Admin router
-app.include_router(users)             # Users router
-app.include_router(security)          # Security router
-
-# Define middleware after all middleware setup and before route handlers
+# Define middleware after all middleware setup
 @app.middleware("http")
 async def admin_login_intercept(request: Request, call_next):
     """
@@ -184,6 +188,15 @@ async def admin_login_intercept(request: Request, call_next):
         )
     
     return await call_next(request)
+
+# Now import routers after middleware is set up
+from app.routers import auth, admin, users, security
+
+# Include routers AFTER middleware setup
+app.include_router(auth)              # Auth router
+app.include_router(admin, prefix="/admin")  # Admin router
+app.include_router(users)             # Users router
+app.include_router(security)          # Security router
 
 @app.exception_handler(404)
 async def custom_404_handler(request: Request, exc):
