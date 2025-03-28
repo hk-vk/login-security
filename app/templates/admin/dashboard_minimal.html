@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Minimal Admin Dashboard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        h1 {
+            color: #333;
+        }
+        .debug {
+            margin-top: 20px;
+            padding: 10px;
+            background: #f0f0f0;
+            border: 1px solid #ccc;
+        }
+    </style>
+</head>
+<body>
+    <h1>Minimal Admin Dashboard</h1>
+    <p>This is a simplified dashboard that should definitely render.</p>
+    
+    <div>
+        <h2>Stats Overview</h2>
+        <ul>
+            <li>Total Users: {{ stats.total_users if stats else 'N/A' }}</li>
+            <li>Active Sessions: {{ stats.active_sessions if stats else 'N/A' }}</li>
+            <li>Security Events: {{ stats.security_events if stats else 'N/A' }}</li>
+        </ul>
+    </div>
+    
+    <div class="debug">
+        <h3>Debug Info:</h3>
+        <p><strong>User:</strong> {{ user.email if user else 'Not authenticated' }}</p>
+        <p><strong>Stats:</strong> {{ stats }}</p>
+    </div>
+    
+    <p><a href="/admin">Back to Admin</a></p>
+</body>
+</html> 
