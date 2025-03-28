@@ -1,13 +1,19 @@
-from fastapi import FastAPI, Request, Depends
+from fastapi import FastAPI, Request, Depends, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from starlette.middleware.sessions import SessionMiddleware
+from fastapi.responses import HTMLResponse, RedirectResponse
+import uvicorn
+from app.routers import auth, admin, users, security
+from starlette.authentication import requires, AuthCredentials, AuthenticationBackend
 from starlette.middleware.authentication import AuthenticationMiddleware
-from starlette.authentication import AuthenticationBackend, AuthCredentials
-from starlette.responses import HTMLResponse, RedirectResponse
+from starlette.middleware.sessions import SessionMiddleware
+from typing import Optional
+import importlib
 import os
+import logging
+import base64
 from dotenv import load_dotenv
-from starlette import status
 from sqlalchemy.orm import Session
 from app.database.database import get_db
 
@@ -18,8 +24,12 @@ from app.starlette.authentication import CustomUser
 from app.database.database import engine, Base
 from app.database.init_db import init_db
 
-# Import routers
-from app.routers import auth, users, security, admin
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
@@ -27,6 +37,7 @@ load_dotenv()
 # Create tables
 Base.metadata.create_all(bind=engine)
 
+# Define TokenAuthBackend here instead of importing it
 class TokenAuthBackend(AuthenticationBackend):
     async def authenticate(self, request):
         from sqlalchemy.orm import Session
@@ -94,150 +105,110 @@ class TokenAuthBackend(AuthenticationBackend):
 # Initialize the FastAPI app
 app = FastAPI(
     title="Adaptive Login Security System",
-    description="A secure authentication system with adaptive security features",
-    version="1.0.0"
+    description="A security system that adapts to the user's behavior and environment",
+    version="1.0.0",
+)
+
+# Mount static files
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
+# Templates directory
+templates = Jinja2Templates(directory="app/templates")
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Add session middleware
 app.add_middleware(
-    SessionMiddleware,
-    secret_key=os.getenv("SECRET_KEY", "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7")
+    SessionMiddleware, 
+    secret_key="your-secret-key-here-make-sure-to-change-in-production"
 )
 
-# Add authentication middleware
+# Add authentication middleware - must be before any route that uses request.user
 app.add_middleware(
-    AuthenticationMiddleware,
+    AuthenticationMiddleware, 
     backend=TokenAuthBackend()
 )
 
-# Static files
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+# Include routers
+app.include_router(auth)              # Auth router
+app.include_router(admin, prefix="/admin")  # Admin router
+app.include_router(users)             # Users router
+app.include_router(security)          # Security router
 
-# Templates
-templates = Jinja2Templates(directory="app/templates")
-
-# Include regular routers
-app.include_router(auth)
-app.include_router(users)
-app.include_router(security)
-
-# Admin route
-@app.get("/admin", response_class=HTMLResponse)
-@app.get("/admin/", response_class=HTMLResponse)
-async def admin_route(request: Request, db: Session = Depends(get_db)):
-    """Handle requests to /admin and show proper login page or dashboard"""
-    from app.models.user import User
+# Define middleware after all middleware setup and before route handlers
+@app.middleware("http")
+async def admin_login_intercept(request: Request, call_next):
+    """
+    Intercept requests to /admin and check if the user is authenticated and an admin
+    """
+    # Debug the requested URL path
+    print(f"Processing request for: {request.url.path}")
     
-    print(f"DEBUG: Admin route accessed: {request.url.path}")
-    
-    # Check if user is authenticated
-    if not hasattr(request, "user") or not request.user.is_authenticated:
-        # User is not authenticated, render admin login page
-        print("DEBUG: User not authenticated, showing admin login")
+    # Intercept requests to /admin
+    if request.url.path == "/admin" or request.url.path == "/admin/":
+        # Check if user is authenticated
+        user = request.user
+        
+        if user and user.is_authenticated:
+            # Get the user from the database to check if they're an admin
+            from app.models.user import User
+            from app.database.database import get_db
+            
+            db = next(get_db())
+            db_user = db.query(User).filter(User.email == user.username).first()
+            
+            if db_user and db_user.is_superuser:
+                # Admin user is authenticated, redirect to dashboard
+                print(f"Admin user {user.username} authenticated, redirecting to dashboard")
+                return RedirectResponse(url="/admin/dashboard")
+            else:
+                # User is authenticated but not an admin, return 403
+                print(f"User {user.username} not an admin, returning 403")
+                return HTMLResponse(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    content="Access denied. You must be an admin to access this page."
+                )
+        
+        # Not authenticated or not admin, render admin login page
+        print("User not authenticated, rendering admin login page")
         return templates.TemplateResponse(
-            "admin/login.html",
-            {
-                "request": request
-            }
+            "admin/login.html", 
+            {"request": request, "redirect_url": "/admin/dashboard"}
         )
     
-    # Get actual user from database for superuser check
-    user_email = request.user.username
-    user = db.query(User).filter(User.email == user_email).first()
-    
-    # Check if user is admin
-    if not user or not user.is_superuser:
-        # User is authenticated but not an admin
-        print(f"DEBUG: User {user_email} is not an admin")
-        return templates.TemplateResponse(
-            "admin/login.html",
-            {
-                "request": request,
-                "error": "This area is restricted to administrators only."
-            }
-        )
-    
-    # For authenticated admin users, redirect to admin dashboard
-    print(f"DEBUG: Admin user {user_email} authenticated, redirecting to dashboard")
-    return RedirectResponse(url="/admin/dashboard", status_code=status.HTTP_303_SEE_OTHER)
+    return await call_next(request)
 
-# Include admin router
-app.include_router(admin, prefix="/admin")
+@app.exception_handler(404)
+async def custom_404_handler(request: Request, exc):
+    # For admin routes, render admin login if not authenticated
+    if request.url.path.startswith("/admin/"):
+        user = request.user
+        if not user or not user.is_authenticated:
+            return templates.TemplateResponse(
+                "admin/login.html", 
+                {"request": request, "redirect_url": request.url.path}
+            )
+    
+    return templates.TemplateResponse(
+        "errors/404.html", 
+        {"request": request, "path": request.url.path}
+    )
 
 @app.get("/", response_class=HTMLResponse)
-@app.head("/")
-@app.options("/")
-async def root(request: Request):
-    """Render the home page"""
-    if request.method == "OPTIONS":
-        # Return CORS headers for OPTIONS request
-        headers = {
-            "Allow": "GET, HEAD, OPTIONS",
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type",
-        }
-        return HTMLResponse(content="", headers=headers)
-    
-    # For GET and HEAD requests
-    return templates.TemplateResponse(
-        "index.html", 
-        {
-            "request": request,
-            "user": request.user if hasattr(request, "user") else None
-        }
-    )
+async def read_root(request: Request):
+    return templates.TemplateResponse("home.html", {"request": request})
 
 @app.on_event("startup")
 async def startup_event():
     """Initialize the database on startup"""
     init_db()
 
-# Add 404 exception handler
-@app.exception_handler(404)
-async def custom_404_handler(request: Request, exc):
-    """Handle 404 errors gracefully"""
-    print(f"DEBUG: 404 error for path: {request.url.path}")
-    
-    # Special handling for admin routes
-    if request.url.path.startswith("/admin"):
-        print(f"DEBUG: Admin 404 for path: {request.url.path}")
-        
-        # Special case for the dashboard - if it's a 404, we show the login page
-        # This handles the case where an unauthenticated user tries to access the dashboard directly
-        if request.url.path == "/admin/dashboard":
-            print("DEBUG: Unauthenticated access to dashboard, showing admin login")
-            return templates.TemplateResponse(
-                "admin/login.html",
-                {
-                    "request": request,
-                    "error": "Please log in to access the admin dashboard."
-                }
-            )
-        
-        # For admin routes, redirect to admin login
-        if request.url.path == "/admin" or request.url.path == "/admin/":
-            print("DEBUG: Redirecting to admin handler")
-            return RedirectResponse(url="/admin", status_code=status.HTTP_307_TEMPORARY_REDIRECT)
-        
-        # For other admin routes, show login with error message
-        return templates.TemplateResponse(
-            "admin/login.html",
-            {
-                "request": request,
-                "error": f"The requested admin page was not found: {request.url.path}"
-            }
-        )
-        
-    # For non-admin routes, show 404 page
-    return templates.TemplateResponse(
-        "errors/404.html", 
-        {
-            "request": request,
-            "path": request.url.path
-        }
-    )
-
 if __name__ == "__main__":
-    import uvicorn
     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True) 
