@@ -32,35 +32,80 @@ router = APIRouter(tags=["authentication"], prefix="/auth")
 
 templates = Jinja2Templates(directory="app/templates")
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
+# NEW: Custom dependency to get token from cookie
+def get_token_from_cookie(request: Request) -> Optional[str]:
+    """Extracts the JWT token from the access_token cookie."""
+    token = request.cookies.get("access_token")
+    print(f"DEBUG (get_token_from_cookie): Cookie 'access_token' value: {token[:10] if token else 'Not found'}")
+    if token and token.startswith("Bearer "):
+        token = token[7:] # Remove "Bearer " prefix
+        print(f"DEBUG (get_token_from_cookie): Returning token (after removing Bearer): {token[:10]}...")
+        return token
+    elif token:
+        print(f"DEBUG (get_token_from_cookie): Returning raw token (no Bearer prefix): {token[:10]}...")
+        return token # Allow raw token if Bearer prefix is missing
+    else:
+        print(f"DEBUG (get_token_from_cookie): Token not found in cookies.")
+        return None
 
 # Helper functions
-def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    """Get the current user from the token"""
+def get_current_user(token: str = Depends(get_token_from_cookie), db: Session = Depends(get_db)):
+    """Get the current user from the token provided by the cookie dependency."""
+    print(f"\n--- DEBUG: get_current_user --- START (Using Cookie Dependency) ---")
+    # No need to check `token is None` here, the dependency handles or returns None
+    # We rely on verify_token to handle None token input if get_token_from_cookie returns None
+    
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
+        detail="Could not validate credentials from cookie",
         headers={"WWW-Authenticate": "Bearer"},
     )
     
-    # Handle case when token is None
-    if token is None:
-        raise credentials_exception
+    print(f"DEBUG: Token received from get_token_from_cookie: {'Yes' if token else 'No'}")
+    if token:
+        print(f"DEBUG: Token received (first 10 chars): {token[:10]}...")
     
     from app.core.security import verify_token
     
+    print("DEBUG: Calling verify_token...")
+    # Pass the token directly to verify_token (it should handle None if necessary)
     token_data = verify_token(token)
-    if not token_data["valid"]:
+    print(f"DEBUG: verify_token result: {token_data}")
+
+    if not token_data or not token_data.get("valid"):
+        print("DEBUG: token_data is invalid or missing 'valid' key. Raising 401.")
+        print(f"--- DEBUG: get_current_user --- END (Error) ---")
         raise credentials_exception
     
-    email = token_data["payload"].get("sub")
+    payload = token_data.get("payload")
+    if not payload:
+        print("DEBUG: token_data is missing 'payload' key. Raising 401.")
+        print(f"--- DEBUG: get_current_user --- END (Error) ---")
+        raise credentials_exception
+        
+    email = payload.get("sub")
+    print(f"DEBUG: Email extracted from token payload ('sub'): {email}")
+    
     if email is None:
+        print("DEBUG: Email ('sub') is None in payload. Raising 401.")
+        print(f"--- DEBUG: get_current_user --- END (Error) ---")
         raise credentials_exception
     
+    print(f"DEBUG: Querying database for user with email: {email}")
     user = db.query(User).filter(User.email == email).first()
-    if user is None or not user.is_active:
+    
+    if user is None:
+        print(f"DEBUG: User with email {email} not found in database. Raising 401.")
+        print(f"--- DEBUG: get_current_user --- END (Error) ---")
+        raise credentials_exception
+        
+    if not user.is_active:
+        print(f"DEBUG: User {email} found but is not active. Raising 401.")
+        print(f"--- DEBUG: get_current_user --- END (Error) ---")
         raise credentials_exception
     
+    print(f"DEBUG: User {email} found and is active. Returning user object.")
+    print(f"--- DEBUG: get_current_user --- END (Success) ---")
     return user
 
 def create_login_history(

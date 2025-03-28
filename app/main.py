@@ -117,19 +117,6 @@ async def admin_root(request: Request, access_token: Optional[str] = Cookie(None
         {"request": request, "redirect_url": "/admin/dashboard"}
     )
 
-@app.get("/admin/{path:path}", response_class=HTMLResponse)
-async def admin_pages(path: str, request: Request, access_token: Optional[str] = Cookie(None)):
-    # Check if user is authenticated and admin
-    if await is_admin(request, access_token):
-        # Continue to the admin route
-        pass
-    else:
-        # If not authenticated or not admin, render admin login page
-        return templates.TemplateResponse(
-            "admin/login.html", 
-            {"request": request, "redirect_url": f"/admin/{path}"}
-        )
-
 # Include routers
 app.include_router(auth)              # Auth router
 app.include_router(admin, prefix="/admin")  # Admin router
