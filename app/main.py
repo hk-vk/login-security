@@ -3,11 +3,14 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.middleware.authentication import AuthenticationMiddleware
-from starlette.authentication import AuthenticationBackend, SimpleUser, AuthCredentials
+from starlette.authentication import AuthenticationBackend, AuthCredentials
 from starlette.responses import HTMLResponse, RedirectResponse
 import os
 from dotenv import load_dotenv
 from starlette import status
+
+# Import custom user class
+from app.starlette.authentication import CustomUser
 
 # Import database
 from app.database.database import engine, Base
@@ -24,6 +27,13 @@ Base.metadata.create_all(bind=engine)
 
 class TokenAuthBackend(AuthenticationBackend):
     async def authenticate(self, request):
+        from sqlalchemy.orm import Session
+        from app.database.database import SessionLocal
+        from app.models.user import User
+        from app.models.session import Session as DbSession
+        from app.core.security import verify_token
+        from datetime import datetime
+
         if "access_token" not in request.cookies:
             return None
         
@@ -31,9 +41,41 @@ class TokenAuthBackend(AuthenticationBackend):
         if token and token.startswith("Bearer "):
             token = token[7:]  # Remove "Bearer " prefix
             
-            # You can add token validation here if needed
-            # For now, just create a simple user
-            return AuthCredentials(["authenticated"]), SimpleUser("user")
+            # Get a database session
+            db = SessionLocal()
+            try:
+                # Look up the token in the sessions table
+                session = db.query(DbSession).filter(
+                    DbSession.token == token,
+                    DbSession.is_active == True,
+                    DbSession.expires_at > datetime.utcnow()
+                ).first()
+                
+                if not session:
+                    return None
+                
+                # Get the user
+                user = db.query(User).filter(User.id == session.user_id).first()
+                if not user or not user.is_active:
+                    return None
+                
+                # Update session last active time
+                session.last_active_at = datetime.utcnow()
+                db.commit()
+                
+                # Return user credentials
+                scopes = ["authenticated"]
+                if user.is_superuser:
+                    scopes.append("admin")
+                
+                return AuthCredentials(scopes), CustomUser(
+                    username=user.email,
+                    display_name=f"{user.first_name} {user.last_name}".strip(),
+                    user_id=user.id,
+                    is_superuser=user.is_superuser
+                )
+            finally:
+                db.close()
         
         return None
 
@@ -83,8 +125,21 @@ async def admin_login_intercept(request: Request):
                 "admin_redirect": True
             }
         )
+    
     # Check if user is admin
-    # For authenticated users, redirect to admin dashboard
+    if not hasattr(request.user, "is_superuser") or not request.user.is_superuser:
+        # User is authenticated but not an admin
+        return templates.TemplateResponse(
+            "auth/login.html",
+            {
+                "request": request,
+                "is_admin_login": True,
+                "admin_redirect": True,
+                "error": "This area is restricted to administrators only."
+            }
+        )
+    
+    # For authenticated admin users, redirect to admin dashboard
     return RedirectResponse(url="/admin/dashboard", status_code=status.HTTP_303_SEE_OTHER)
 
 @app.get("/", response_class=HTMLResponse)

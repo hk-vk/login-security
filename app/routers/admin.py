@@ -22,8 +22,13 @@ router = APIRouter(tags=["admin"])
 templates = Jinja2Templates(directory="app/templates")
 
 # Admin-only dependency
-def get_admin_user(current_user: User = Depends(get_current_user)):
+def get_admin_user(request: Request, current_user: User = Depends(get_current_user)):
     """Check if the current user is an admin"""
+    # First check the credentials from request.auth
+    if hasattr(request, "auth") and "admin" in request.auth.scopes:
+        return current_user
+        
+    # Also check the database user record to be absolutely sure
     if not current_user.is_superuser:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
