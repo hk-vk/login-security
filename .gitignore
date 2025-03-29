@@ -19,9 +19,6 @@ ENV/
 .env
 
 # Database
-*.db
-*.sqlite3
-*.sqlite
 
 # IDE specific files
 .idea/
