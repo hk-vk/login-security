@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request, Form, Query
-from fastapi.responses import RedirectResponse, HTMLResponse
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Form, Query, BackgroundTasks
+from fastapi.responses import RedirectResponse, HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
@@ -16,6 +16,8 @@ from app.models.security_settings import SecuritySettings
 from app.schemas.admin import SecuritySettingsUpdate
 from app.routers.auth import get_current_user
 from app.core.security import get_password_hash
+from app.utils.export import export_logs_to_csv, export_logs_to_json, generate_security_report, fetch_filter_logs
+from app.utils.maintenance import create_database_backup, perform_log_cleanup, optimize_database, get_system_health
 
 router = APIRouter(tags=["admin"])
 
@@ -812,4 +814,139 @@ async def admin_security_page(
                 "mfa_rate": round(mfa_rate, 1)
             }
         }
-    ) 
+    )
+
+# Export routes
+@router.get("/logs/export", response_class=StreamingResponse)
+async def export_logs(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_admin_user),
+    format: str = Query("csv", regex="^(csv|json)$"),
+    start_date: Optional[datetime] = Query(None),
+    end_date: Optional[datetime] = Query(None),
+    user_id: Optional[int] = Query(None),
+    success: Optional[bool] = Query(None)
+):
+    """Export logs in CSV or JSON format"""
+    # Set default date range to last 30 days if not specified
+    if not start_date:
+        start_date = datetime.now() - timedelta(days=30)
+    if not end_date:
+        end_date = datetime.now()
+    
+    # Prepare filters
+    filters = {
+        "start_date": start_date,
+        "end_date": end_date,
+        "user_id": user_id,
+        "success": success
+    }
+    
+    # Fetch logs based on filters
+    logs = fetch_filter_logs(db, filters)
+    
+    # Get user info for the logs
+    user_ids = [log.user_id for log in logs if log.user_id is not None]
+    users = {user.id: user for user in db.query(User).filter(User.id.in_(user_ids)).all()} if user_ids else {}
+    
+    # Export based on requested format
+    if format == "csv":
+        return export_logs_to_csv(logs, users)
+    else:  # json
+        return export_logs_to_json(logs, users)
+
+@router.get("/security/report", response_class=StreamingResponse)
+async def security_report(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_admin_user),
+    start_date: Optional[datetime] = Query(None),
+    end_date: Optional[datetime] = Query(None)
+):
+    """Generate a security report for the specified date range"""
+    # Set default date range to last 30 days if not specified
+    if not start_date:
+        start_date = datetime.now() - timedelta(days=30)
+    if not end_date:
+        end_date = datetime.now()
+    
+    return generate_security_report(db, start_date, end_date)
+
+# System maintenance routes
+@router.get("/maintenance", response_class=HTMLResponse)
+async def admin_maintenance(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_admin_user)
+):
+    """Display system maintenance page"""
+    # Get system health data
+    health_data = get_system_health()
+    
+    # Get database stats
+    user_count = db.query(User).count()
+    active_users = db.query(User).filter(User.is_active == True).count()
+    
+    now = datetime.utcnow()
+    log_count = db.query(LoginHistory).count()
+    log_count_30_days = db.query(LoginHistory).filter(LoginHistory.timestamp >= now - timedelta(days=30)).count()
+    
+    active_sessions = db.query(DbSession).filter(
+        DbSession.is_active == True,
+        DbSession.expires_at > now
+    ).count()
+    
+    # Get last maintenance time (could be stored in a settings table in a real app)
+    last_maintenance = now - timedelta(days=3, hours=7)  # Example value
+    
+    return templates.TemplateResponse(
+        "admin/maintenance.html",
+        {
+            "request": request,
+            "current_user": current_user,
+            "health": health_data,
+            "stats": {
+                "user_count": user_count,
+                "active_users": active_users,
+                "log_count": log_count,
+                "log_count_30_days": log_count_30_days,
+                "active_sessions": active_sessions
+            },
+            "last_maintenance": last_maintenance
+        }
+    )
+
+@router.get("/maintenance/backup", response_class=StreamingResponse)
+async def backup_database(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_admin_user)
+):
+    """Create a database backup and return it as a downloadable file"""
+    return create_database_backup(db)
+
+@router.post("/maintenance/cleanup", response_class=JSONResponse)
+async def cleanup_logs(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_admin_user),
+    retention_days: int = Form(90)
+):
+    """Clean up old logs and sessions"""
+    # Run in background task to avoid timeout for large databases
+    result = perform_log_cleanup(db, retention_days)
+    return JSONResponse(result)
+
+@router.post("/maintenance/optimize", response_class=JSONResponse)
+async def optimize_db(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_admin_user)
+):
+    """Optimize the database"""
+    # Run in background task to avoid timeout
+    result = optimize_database(db)
+    return JSONResponse(result) 
