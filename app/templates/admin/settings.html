@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "../base.html" %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', path='css/admin.css') }}">
@@ -41,8 +41,9 @@
 <!-- Debug info visible during development -->
 <div class="debug-section" id="debugSection">
     <h4>Debug Info</h4>
-    <p>Settings: {{ settings }}</p>
-    <p>Current User: {{ current_user.id }} - {{ current_user.email }}</p>
+    <p>Current User: {{ admin_user.id }} - {{ admin_user.email }}</p>
+    <p>Settings Last Updated: {{ settings.updated_at }}</p>
+    <p>Last Updated By: {{ settings.last_updated_by }}</p>
 </div>
 <button class="debug-toggle" id="debugToggle">Show Debug</button>
 
@@ -61,10 +62,6 @@
                 <i class="fas fa-users"></i>
                 Users
             </a>
-            <a href="/admin/security">
-                <i class="fas fa-lock"></i>
-                Security
-            </a>
             <a href="/admin/logs">
                 <i class="fas fa-history"></i>
                 Activity Logs
@@ -72,6 +69,10 @@
             <a href="/admin/settings" class="active">
                 <i class="fas fa-cog"></i>
                 Settings
+            </a>
+            <a href="/admin/maintenance">
+                <i class="fas fa-tools"></i>
+                Maintenance
             </a>
         </nav>
     </div>
@@ -368,7 +369,7 @@
 </div>
 
 <script>
-// Debug toggle
+// Toggle debug section
 document.getElementById('debugToggle').addEventListener('click', function() {
     const debugSection = document.getElementById('debugSection');
     if (debugSection.style.display === 'none' || !debugSection.style.display) {
@@ -380,67 +381,70 @@ document.getElementById('debugToggle').addEventListener('click', function() {
     }
 });
 
-// Function to save all settings
+// Save all settings
 function saveAllSettings() {
-    // Existing code...
+    // Get form data for all settings sections
+    const formData = {
+        // Password policy
+        password_min_length: parseInt(document.getElementById('minPasswordLength').value),
+        password_require_uppercase: document.getElementById('requireUppercase').checked,
+        password_require_lowercase: document.getElementById('requireLowercase').checked,
+        password_require_digits: document.getElementById('requireNumbers').checked,
+        password_require_special: document.getElementById('requireSpecial').checked,
+        password_expiry_days: parseInt(document.getElementById('passwordExpiryDays').value),
+        password_history_count: parseInt(document.getElementById('passwordHistoryCount').value),
+        
+        // Account lockout
+        max_login_attempts: parseInt(document.getElementById('maxLoginAttempts').value),
+        lockout_duration_minutes: parseInt(document.getElementById('lockoutDuration').value),
+        
+        // MFA
+        require_mfa: document.querySelector('input[name="mfaPolicy"]:checked').value === 'all' || document.querySelector('input[name="mfaPolicy"]:checked').value === 'admins',
+        mfa_remember_days: parseInt(document.getElementById('mfaRememberDays').value),
+        
+        // Session
+        session_timeout_minutes: parseInt(document.getElementById('sessionTimeout').value)
+    };
     
-    // Form submission logic
-    const formData = new FormData();
-    
-    // Password settings
-    formData.append('password_min_length', document.getElementById('minPasswordLength').value);
-    formData.append('password_require_uppercase', document.getElementById('requireUppercase').checked);
-    formData.append('password_require_lowercase', document.getElementById('requireLowercase').checked);
-    formData.append('password_require_digits', document.getElementById('requireNumbers').checked);
-    formData.append('password_require_special', document.getElementById('requireSpecial').checked);
-    
-    // Account lockout
-    formData.append('max_login_attempts', document.getElementById('maxLoginAttempts').value);
-    formData.append('lockout_duration_minutes', document.getElementById('lockoutDuration').value);
-    
-    // MFA
-    const mfaPolicy = document.querySelector('input[name="mfaPolicy"]:checked').value;
-    formData.append('require_mfa', mfaPolicy === 'all' || mfaPolicy === 'admins');
-    
-    // Session timeout
-    formData.append('session_timeout_minutes', document.getElementById('sessionTimeout').value);
-    
-    // Submit the form
+    // Send AJAX request to save settings
     fetch('/admin/settings', {
         method: 'POST',
-        body: formData
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData)
     })
-    .then(response => {
-        if (response.ok) {
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
             showToast('Settings saved successfully', 'success');
-            setTimeout(() => {
-                window.location.reload();
-            }, 1500);
         } else {
-            showToast('Error saving settings', 'error');
+            showToast('Error: ' + data.message, 'error');
         }
     })
     .catch(error => {
-        console.error('Error:', error);
-        showToast('Error saving settings', 'error');
+        console.error('Error saving settings:', error);
+        showToast('An error occurred while saving settings', 'error');
     });
 }
 
-// Function to show toast notification
+// Toast notification function
 function showToast(message, type) {
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
-    toast.textContent = message;
+    toast.innerHTML = message;
     document.body.appendChild(toast);
     
+    // Show toast
     setTimeout(() => {
         toast.classList.add('show');
-    }, 100);
+    }, 10);
     
+    // Hide and remove toast after 3 seconds
     setTimeout(() => {
         toast.classList.remove('show');
         setTimeout(() => {
-            document.body.removeChild(toast);
+            toast.remove();
         }, 300);
     }, 3000);
 }
