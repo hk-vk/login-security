@@ -368,94 +368,81 @@
 </div>
 
 <script>
-// Save all settings
-function saveAllSettings() {
-    const settings = {
-        // Password settings
-        password: {
-            minLength: parseInt(document.getElementById('minPasswordLength').value),
-            requireUppercase: document.getElementById('requireUppercase').checked,
-            requireLowercase: document.getElementById('requireLowercase').checked,
-            requireNumbers: document.getElementById('requireNumbers').checked,
-            requireSpecial: document.getElementById('requireSpecial').checked
-        },
-        // Account lockout
-        accountLockout: {
-            enabled: document.getElementById('enableLockout').checked,
-            maxAttempts: parseInt(document.getElementById('maxLoginAttempts').value),
-            duration: parseInt(document.getElementById('lockoutDuration').value)
-        },
-        // MFA
-        mfa: {
-            policy: document.querySelector('input[name="mfaPolicy"]:checked').value
-        },
-        // CAPTCHA
-        captcha: {
-            loginForm: document.getElementById('enableLoginCaptcha').checked,
-            registrationForm: document.getElementById('enableRegisterCaptcha').checked,
-            passwordReset: document.getElementById('enableResetCaptcha').checked
-        },
-        // Session
-        session: {
-            timeout: parseInt(document.getElementById('sessionTimeout').value),
-            singleSession: document.getElementById('enforceSingleSession').checked
-        },
-        // Email
-        email: {
-            smtp: {
-                server: document.getElementById('smtpServer').value,
-                port: parseInt(document.getElementById('smtpPort').value),
-                username: document.getElementById('smtpUsername').value,
-                password: document.getElementById('smtpPassword').value,
-                tls: document.getElementById('enableTLS').checked
-            },
-            notifications: {
-                registration: document.getElementById('notifyRegistration').checked,
-                failedLogins: document.getElementById('notifyFailedLogins').checked,
-                passwordResets: document.getElementById('notifyPasswordResets').checked,
-                systemErrors: document.getElementById('notifySystemErrors').checked,
-                adminEmail: document.getElementById('adminEmail').value
-            }
-        },
-        // System
-        system: {
-            logging: {
-                level: document.getElementById('logLevel').value,
-                retention: parseInt(document.getElementById('logRetention').value),
-                auditLog: document.getElementById('enableAuditLog').checked
-            },
-            registration: {
-                allowed: document.getElementById('allowRegistration').checked,
-                requireEmailVerification: document.getElementById('requireEmailVerification').checked,
-                requireAdminApproval: document.getElementById('requireAdminApproval').checked
-            },
-            maintenance: {
-                enabled: document.getElementById('maintenanceMode').checked,
-                message: document.getElementById('maintenanceMessage').value
-            }
-        }
-    };
+// Debug toggle
+document.getElementById('debugToggle').addEventListener('click', function() {
+    const debugSection = document.getElementById('debugSection');
+    if (debugSection.style.display === 'none' || !debugSection.style.display) {
+        debugSection.style.display = 'block';
+        this.textContent = 'Hide Debug';
+    } else {
+        debugSection.style.display = 'none';
+        this.textContent = 'Show Debug';
+    }
+});
 
-    // Send settings to server
-    fetch('/admin/settings/update', {
+// Function to save all settings
+function saveAllSettings() {
+    // Existing code...
+    
+    // Form submission logic
+    const formData = new FormData();
+    
+    // Password settings
+    formData.append('password_min_length', document.getElementById('minPasswordLength').value);
+    formData.append('password_require_uppercase', document.getElementById('requireUppercase').checked);
+    formData.append('password_require_lowercase', document.getElementById('requireLowercase').checked);
+    formData.append('password_require_digits', document.getElementById('requireNumbers').checked);
+    formData.append('password_require_special', document.getElementById('requireSpecial').checked);
+    
+    // Account lockout
+    formData.append('max_login_attempts', document.getElementById('maxLoginAttempts').value);
+    formData.append('lockout_duration_minutes', document.getElementById('lockoutDuration').value);
+    
+    // MFA
+    const mfaPolicy = document.querySelector('input[name="mfaPolicy"]:checked').value;
+    formData.append('require_mfa', mfaPolicy === 'all' || mfaPolicy === 'admins');
+    
+    // Session timeout
+    formData.append('session_timeout_minutes', document.getElementById('sessionTimeout').value);
+    
+    // Submit the form
+    fetch('/admin/settings', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(settings)
+        body: formData
     })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showNotification('Settings saved successfully', 'success');
+    .then(response => {
+        if (response.ok) {
+            showToast('Settings saved successfully', 'success');
+            setTimeout(() => {
+                window.location.reload();
+            }, 1500);
         } else {
-            showNotification('Failed to save settings: ' + data.message, 'error');
+            showToast('Error saving settings', 'error');
         }
     })
     .catch(error => {
-        console.error('Error saving settings:', error);
-        showNotification('An error occurred while saving settings', 'error');
+        console.error('Error:', error);
+        showToast('Error saving settings', 'error');
     });
+}
+
+// Function to show toast notification
+function showToast(message, type) {
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.classList.add('show');
+    }, 100);
+    
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => {
+            document.body.removeChild(toast);
+        }, 300);
+    }, 3000);
 }
 
 // Test email settings
@@ -511,15 +498,5 @@ function showNotification(message, type) {
         }
     }, 5000);
 }
-
-// Debug toggle functionality
-document.addEventListener('DOMContentLoaded', function() {
-    document.getElementById('debugToggle').addEventListener('click', function() {
-        const debugSection = document.getElementById('debugSection');
-        const isVisible = debugSection.style.display === 'block';
-        debugSection.style.display = isVisible ? 'none' : 'block';
-        this.textContent = isVisible ? 'Show Debug' : 'Hide Debug';
-    });
-});
 </script>
 {% endblock %} 

@@ -252,46 +252,45 @@ async def admin_dashboard_minimal(
 @router.get("/users", response_class=HTMLResponse)
 async def admin_users(
     request: Request,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_admin_user),
     page: int = Query(1, ge=1),
-    search: str = Query(None)
+    search: str = Query(None),
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(get_admin_user)
 ):
-    """Display user management page"""
-    # Items per page
-    per_page = 10
-    
-    # Base query
+    """Display the users management page with pagination and search"""
+    items_per_page = 10
     query = db.query(User)
     
     # Apply search filter if provided
     if search:
+        search_term = f"%{search}%"
         query = query.filter(
-            User.email.contains(search) | 
-            User.first_name.contains(search) | 
-            User.last_name.contains(search)
+            (User.email.ilike(search_term)) |
+            (User.first_name.ilike(search_term)) |
+            (User.last_name.ilike(search_term))
         )
     
-    # Calculate pagination
-    total = query.count()
-    total_pages = (total + per_page - 1) // per_page
+    # Get total count for pagination
+    total_items = query.count()
+    total_pages = (total_items + items_per_page - 1) // items_per_page
     
-    # Adjust current page if needed
-    page = min(page, total_pages) if total_pages > 0 else 1
+    # Ensure current page is valid
+    current_page = min(max(1, page), max(1, total_pages))
     
     # Get users for current page
-    users = query.order_by(User.id).offset((page - 1) * per_page).limit(per_page).all()
+    offset = (current_page - 1) * items_per_page
+    users = query.offset(offset).limit(items_per_page).all()
     
     return templates.TemplateResponse(
         "admin/users.html",
         {
             "request": request,
             "users": users,
-            "current_user": current_user,
-            "page": page,
+            "current_page": current_page,
             "total_pages": total_pages,
-            "total_users": total,
-            "search": search or ""
+            "total_items": total_items,
+            "search": search,
+            "admin_user": admin_user
         }
     )
 
@@ -472,6 +471,8 @@ async def admin_security_settings(
     current_user: User = Depends(get_admin_user)
 ):
     """Display security settings page"""
+    print(f"DEBUG: Admin settings page requested by {current_user.email}")
+    
     # Get current security settings
     settings = db.query(SecuritySettings).first()
     
@@ -486,7 +487,8 @@ async def admin_security_settings(
         "admin/settings.html",
         {
             "request": request,
-            "settings": settings
+            "settings": settings,
+            "current_user": current_user
         }
     )
 
