@@ -29,6 +29,12 @@ def check_account_lockout(user: User) -> Dict[str, Any]:
             "locked_until": user.account_locked_until
         }
     
+    # If we get here, either account_locked_until is None or it's in the past,
+    # so we should unlock the account if it was locked
+    if user.account_locked_until:
+        user.account_locked_until = None
+        # No need to commit here, the caller should handle commits
+    
     return {"locked": False}
 
 def handle_failed_login(db: Session, user: User) -> Dict[str, Any]:

@@ -225,47 +225,12 @@ async def login(
     email: str = Form(...),
     password: str = Form(...),
     remember: bool = Form(False),
-    captcha_code: str = Form(None),
     device_fingerprint: str = Form(None),
     geo_location: str = Form(None),
     redirect: str = Form(None)
 ):
     """Login user"""
-    # Check if CAPTCHA is required and validate
-    if captcha_code:
-        print(f"DEBUG: CAPTCHA code submitted: {captcha_code}")
-        captcha_valid = False
-        
-        # Get CAPTCHA token from cookie and validate
-        captcha_cookie = request.cookies.get("captcha_token")
-        if captcha_cookie:
-            print(f"DEBUG: CAPTCHA token cookie found")
-            try:
-                # Decode the token
-                token_data = json.loads(captcha_cookie)
-                expected_code = token_data.get("code")
-                expiry = token_data.get("expiry")
-                print(f"DEBUG: Expected CAPTCHA: {expected_code}, Expiry: {expiry}")
-                
-                # Check if code matches and not expired
-                if expected_code == captcha_code and expiry > time.time():
-                    captcha_valid = True
-                    print("DEBUG: CAPTCHA validation successful")
-                else:
-                    print("DEBUG: CAPTCHA validation failed: wrong code or expired")
-            except:
-                print("DEBUG: Error decoding CAPTCHA token")
-        
-        if not captcha_valid:
-            return templates.TemplateResponse(
-                "auth/login.html",
-                {
-                    "request": request,
-                    "error": "Invalid CAPTCHA code",
-                    "email": email,
-                    "show_captcha": True
-                }
-            )
+    # CAPTCHA validation removed
     
     # Check if user exists
     user = db.query(User).filter(User.email == email).first()
@@ -277,12 +242,13 @@ async def login(
                 "request": request,
                 "error": "Invalid email or password",
                 "email": email,
-                "show_captcha": True  # Show CAPTCHA after failed login
+                "show_captcha": False  # Always hide CAPTCHA
             }
         )
     
     # Check if account is locked
-    if check_account_lockout(user):
+    lockout_status = check_account_lockout(user)
+    if lockout_status.get("locked"):
         print(f"DEBUG: Account locked: {user.email}")
         return templates.TemplateResponse(
             "auth/login.html",
@@ -290,14 +256,16 @@ async def login(
                 "request": request,
                 "error": f"Account locked. Please try again later or contact support.",
                 "email": email,
-                "show_captcha": True
+                "show_captcha": False  # Always hide CAPTCHA
             }
         )
+    # If account was previously locked but now unlocked, save changes
+    db.commit()
     
     # Verify password
     if not verify_password(password, user.hashed_password):
         # Handle failed login
-        handle_failed_login(db, user, request)
+        handle_failed_login(db, user)
         
         # Create login history entry
         create_login_history(
@@ -311,7 +279,7 @@ async def login(
                 "request": request,
                 "error": "Invalid email or password",
                 "email": email,
-                "show_captcha": True
+                "show_captcha": False  # Always hide CAPTCHA
             }
         )
     
@@ -531,20 +499,6 @@ async def logout(request: Request, db: Session = Depends(get_db)):
     response.delete_cookie(key="access_token")
     
     return response
-
-@router.get("/captcha")
-async def generate_captcha(request: Request):
-    """Generate a new CAPTCHA for the session"""
-    # Generate a random captcha code
-    import random
-    import string
-    captcha_text = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
-    
-    # Store the captcha text in the session
-    request.session["captcha_text"] = captcha_text
-    
-    # Return the captcha text (in a real implementation, would return an image)
-    return JSONResponse({"captcha": captcha_text})
 
 @router.get("/mfa/setup", response_class=HTMLResponse)
 async def mfa_setup_page(request: Request, db: Session = Depends(get_db)):
@@ -818,12 +772,14 @@ async def login_for_access_token(
     
     # Check if the account is locked
     lockout_status = check_account_lockout(user)
-    if lockout_status["locked"]:
+    if lockout_status.get("locked"):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Account is locked. Try again in {lockout_status['minutes_remaining']} minutes.",
+            detail=f"Account is locked. Try again in {lockout_status.get('minutes_remaining')} minutes.",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    # If account was previously locked but now unlocked, save changes
+    db.commit()
     
     # Handle successful login
     handle_successful_login(db, user)
