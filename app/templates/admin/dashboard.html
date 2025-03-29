@@ -613,6 +613,32 @@ main {
 .vuln-low {
     color: #2ecc71;
 }
+
+.installation-guide {
+    background: #f9f9f9;
+    border-left: 4px solid #3498db;
+    padding: 15px;
+    margin-top: 20px;
+    border-radius: 4px;
+}
+.installation-guide h3 {
+    margin-top: 0;
+    color: #2c3e50;
+}
+.installation-guide ol {
+    padding-left: 20px;
+}
+.installation-guide code {
+    background: #eee;
+    padding: 2px 5px;
+    border-radius: 3px;
+    font-family: monospace;
+}
+.installation-guide .note {
+    font-style: italic;
+    color: #7f8c8d;
+    margin-top: 10px;
+}
 </style>
 {% endblock %}
 
@@ -651,14 +677,6 @@ main {
             <a href="/admin/settings">
                 <i class="fas fa-cog"></i>
                 Settings
-            </a>
-            <a href="/admin/maintenance">
-                <i class="fas fa-tools"></i>
-                Maintenance
-            </a>
-            <a href="/admin/compliance">
-                <i class="fas fa-clipboard-check"></i>
-                Compliance
             </a>
         </nav>
     </div>
@@ -721,56 +739,6 @@ main {
             </div>
         </div>
 
-        <!-- Risk Score Overview -->
-        <div class="dashboard-section">
-            <div class="section-header">
-                <h3><i class="fas fa-exclamation-circle"></i> Risk Assessment</h3>
-                <button class="btn-small" onclick="location.href='/admin/security/risk'">View Details</button>
-            </div>
-            
-            <div class="security-grid">
-                <div class="security-card {% if security_metrics.get('overall_risk_score', 0) > 70 %}alert{% endif %}">
-                    <h4>Overall Risk Score</h4>
-                    <div class="metric-circle risk-overall">
-                        <span>{{ security_metrics.get('overall_risk_score', 0) }}</span>
-                    </div>
-                    <div class="metric-info">
-                        <p>Based on {{ security_metrics.get('risk_factors_count', 0) }} factors</p>
-                    </div>
-                </div>
-                
-                <div class="security-card {% if security_metrics.get('brute_force_risk', 0) > 60 %}alert{% endif %}">
-                    <h4>Brute Force Risk</h4>
-                    <div class="metric-circle {% if security_metrics.get('brute_force_risk', 0) > 60 %}risk-high{% elif security_metrics.get('brute_force_risk', 0) > 30 %}risk-medium{% else %}risk-low{% endif %}">
-                        <span>{{ security_metrics.get('brute_force_risk', 0) }}</span>
-                    </div>
-                    <div class="metric-info">
-                        <p>{{ security_metrics.get('blocked_ips_count', 0) }} IPs blocked</p>
-                    </div>
-                </div>
-                
-                <div class="security-card {% if security_metrics.get('account_takeover_risk', 0) > 50 %}alert{% endif %}">
-                    <h4>Account Takeover Risk</h4>
-                    <div class="metric-circle {% if security_metrics.get('account_takeover_risk', 0) > 60 %}risk-high{% elif security_metrics.get('account_takeover_risk', 0) > 30 %}risk-medium{% else %}risk-low{% endif %}">
-                        <span>{{ security_metrics.get('account_takeover_risk', 0) }}</span>
-                    </div>
-                    <div class="metric-info">
-                        <p>{{ security_metrics.get('suspicious_logins_count', 0) }} suspicious logins</p>
-                    </div>
-                </div>
-                
-                <div class="security-card {% if security_metrics.get('data_breach_risk', 0) > 40 %}alert{% endif %}">
-                    <h4>Data Breach Risk</h4>
-                    <div class="metric-circle {% if security_metrics.get('data_breach_risk', 0) > 60 %}risk-high{% elif security_metrics.get('data_breach_risk', 0) > 30 %}risk-medium{% else %}risk-low{% endif %}">
-                        <span>{{ security_metrics.get('data_breach_risk', 0) }}</span>
-                    </div>
-                    <div class="metric-info">
-                        <p>{{ security_metrics.get('unusual_access_count', 0) }} unusual access patterns</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <!-- Security Overview -->
         <div class="dashboard-section">
             <div class="section-header">
@@ -821,59 +789,39 @@ main {
             </div>
         </div>
         
-        <!-- Compliance Status -->
+        <!-- Installation Instructions -->
         <div class="dashboard-section">
             <div class="section-header">
-                <h3><i class="fas fa-clipboard-check"></i> Compliance Status</h3>
-                <button class="btn-small" onclick="location.href='/admin/compliance'">View Details</button>
+                <h3><i class="fas fa-download"></i> Installation Guide</h3>
             </div>
             
-            <div class="security-grid">
-                {% set compliance = compliance or {} %}
-                {% set password_policy = compliance.get('password_policy', {'compliant': true, 'details': 'No data'}) %}
-                {% set data_retention = compliance.get('data_retention', {'compliant': true, 'details': 'No data'}) %}
-                {% set access_control = compliance.get('access_control', {'compliant': true, 'details': 'No data'}) %}
-                {% set audit_logging = compliance.get('audit_logging', {'compliant': true, 'details': 'No data'}) %}
-                
-                <div class="security-card {% if not password_policy.compliant %}alert{% endif %}">
-                    <h4>Password Policy</h4>
-                    <div class="metric-circle {% if password_policy.compliant %}compliant{% else %}non-compliant{% endif %}">
-                        <i class="fas fa-{% if password_policy.compliant %}check{% else %}times{% endif %}"></i>
-                    </div>
-                    <div class="metric-info">
-                        <p>{{ password_policy.details }}</p>
-                    </div>
-                </div>
-                
-                <div class="security-card {% if not data_retention.compliant %}alert{% endif %}">
-                    <h4>Data Retention</h4>
-                    <div class="metric-circle {% if data_retention.compliant %}compliant{% else %}non-compliant{% endif %}">
-                        <i class="fas fa-{% if data_retention.compliant %}check{% else %}times{% endif %}"></i>
-                    </div>
-                    <div class="metric-info">
-                        <p>{{ data_retention.details }}</p>
-                    </div>
-                </div>
-                
-                <div class="security-card {% if not access_control.compliant %}alert{% endif %}">
-                    <h4>Access Control</h4>
-                    <div class="metric-circle {% if access_control.compliant %}compliant{% else %}non-compliant{% endif %}">
-                        <i class="fas fa-{% if access_control.compliant %}check{% else %}times{% endif %}"></i>
-                    </div>
-                    <div class="metric-info">
-                        <p>{{ access_control.details }}</p>
-                    </div>
-                </div>
-                
-                <div class="security-card {% if not audit_logging.compliant %}alert{% endif %}">
-                    <h4>Audit Logging</h4>
-                    <div class="metric-circle {% if audit_logging.compliant %}compliant{% else %}non-compliant{% endif %}">
-                        <i class="fas fa-{% if audit_logging.compliant %}check{% else %}times{% endif %}"></i>
-                    </div>
-                    <div class="metric-info">
-                        <p>{{ audit_logging.details }}</p>
-                    </div>
-                </div>
+            <div class="installation-guide">
+                <h3>How to Install Adaptive Login Security System</h3>
+                <ol>
+                    <li><strong>Clone the repository:</strong>
+                        <code>git clone https://github.com/yourusername/adaptive-login-security.git</code>
+                    </li>
+                    <li><strong>Create and activate a virtual environment:</strong>
+                        <code>python -m venv venv</code><br>
+                        <code>source venv/bin/activate</code> (Linux/Mac) or <code>venv\Scripts\activate</code> (Windows)
+                    </li>
+                    <li><strong>Install dependencies:</strong>
+                        <code>pip install -r requirements.txt</code>
+                    </li>
+                    <li><strong>Set up environment variables:</strong>
+                        Create a <code>.env</code> file with the following variables:
+                        <pre>SECRET_KEY=your_secret_key
+DATABASE_URL=sqlite:///app.db
+DEBUG=True</pre>
+                    </li>
+                    <li><strong>Initialize the database:</strong>
+                        <code>python -m app.database.init_db</code>
+                    </li>
+                    <li><strong>Run the application:</strong>
+                        <code>uvicorn app.main:app --reload</code>
+                    </li>
+                </ol>
+                <p class="note">Note: For production deployment, ensure DEBUG is set to False and use a production-ready database like PostgreSQL.</p>
             </div>
         </div>
         
@@ -887,7 +835,6 @@ main {
                         <button class="btn-small" data-chart="securityIncidents">Security Incidents</button>
                         <button class="btn-small" data-chart="geoDistribution">Geographic Distribution</button>
                         <button class="btn-small" data-chart="resourceUsage">Resource Usage</button>
-                        <button class="btn-small" data-chart="vulnerabilityTrends">Vulnerability Trends</button>
                     </div>
                 </div>
                 
@@ -968,7 +915,7 @@ main {
             <div class="dashboard-section system-section">
                 <div class="section-header">
                     <h3><i class="fas fa-server"></i> System Health</h3>
-                    <button class="btn-small" onclick="location.href='/admin/maintenance'">Maintenance</button>
+                    <button class="btn-small" onclick="refreshStats()">Refresh</button>
                 </div>
                 
                 <div class="system-resources">
@@ -1017,58 +964,6 @@ main {
                     <p><strong>Last checked:</strong> {{ system_status.last_checked }}</p>
                     <p><strong>Database size:</strong> {{ system_status.get('db_size', 'Unknown') }}</p>
                     <p><strong>Uptime:</strong> {{ system_status.get('uptime', 'Unknown') }}</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Vulnerability Reports -->
-        <div class="dashboard-section">
-            <div class="section-header">
-                <h3><i class="fas fa-bug"></i> System Vulnerabilities</h3>
-                <button class="btn-small" onclick="location.href='/admin/security/vulnerabilities'">View All</button>
-            </div>
-            
-            <div class="security-grid">
-                {% set vulnerability_metrics = vulnerability_metrics or {} %}
-                
-                <div class="security-card {% if vulnerability_metrics.get('critical_count', 0) > 0 %}alert{% endif %}">
-                    <h4>Critical</h4>
-                    <div class="metric-number {% if vulnerability_metrics.get('critical_count', 0) > 0 %}vuln-critical{% else %}vuln-low{% endif %}">
-                        <span>{{ vulnerability_metrics.get('critical_count', 0) }}</span>
-                    </div>
-                    <div class="metric-info">
-                        <p>Need immediate attention</p>
-                    </div>
-                </div>
-                
-                <div class="security-card {% if vulnerability_metrics.get('high_count', 0) > 3 %}alert{% endif %}">
-                    <h4>High</h4>
-                    <div class="metric-number {% if vulnerability_metrics.get('high_count', 0) > 3 %}vuln-critical{% elif vulnerability_metrics.get('high_count', 0) > 0 %}vuln-high{% else %}vuln-low{% endif %}">
-                        <span>{{ vulnerability_metrics.get('high_count', 0) }}</span>
-                    </div>
-                    <div class="metric-info">
-                        <p>Require prompt resolution</p>
-                    </div>
-                </div>
-                
-                <div class="security-card">
-                    <h4>Medium</h4>
-                    <div class="metric-number {% if vulnerability_metrics.get('medium_count', 0) > 5 %}vuln-high{% else %}vuln-medium{% endif %}">
-                        <span>{{ vulnerability_metrics.get('medium_count', 0) }}</span>
-                    </div>
-                    <div class="metric-info">
-                        <p>Should be addressed soon</p>
-                    </div>
-                </div>
-                
-                <div class="security-card">
-                    <h4>Low</h4>
-                    <div class="metric-number vuln-low">
-                        <span>{{ vulnerability_metrics.get('low_count', 0) }}</span>
-                    </div>
-                    <div class="metric-info">
-                        <p>Lower priority issues</p>
-                    </div>
                 </div>
             </div>
         </div>
@@ -1371,66 +1266,6 @@ function initCharts() {
                             title: {
                                 display: true,
                                 text: 'System Resource Usage'
-                            }
-                        }
-                    }
-                });
-            } else if (chartType === 'vulnerabilityTrends' && chartData.vulnerabilityTrends) {
-                // Vulnerability trends chart (line chart)
-                window.currentChart = new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: chartData.vulnerabilityTrends.labels,
-                        datasets: [
-                            {
-                                label: 'Critical',
-                                data: chartData.vulnerabilityTrends.critical,
-                                borderColor: 'rgba(255, 99, 132, 1)',
-                                backgroundColor: 'rgba(255, 99, 132, 0.2)',
-                                fill: true,
-                                tension: 0.4
-                            },
-                            {
-                                label: 'High',
-                                data: chartData.vulnerabilityTrends.high,
-                                borderColor: 'rgba(255, 206, 86, 1)',
-                                backgroundColor: 'rgba(255, 206, 86, 0.2)',
-                                fill: true,
-                                tension: 0.4
-                            },
-                            {
-                                label: 'Medium',
-                                data: chartData.vulnerabilityTrends.medium,
-                                borderColor: 'rgba(75, 192, 192, 1)',
-                                backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                                fill: true,
-                                tension: 0.4
-                            },
-                            {
-                                label: 'Low',
-                                data: chartData.vulnerabilityTrends.low,
-                                borderColor: 'rgba(54, 162, 235, 1)',
-                                backgroundColor: 'rgba(54, 162, 235, 0.2)',
-                                fill: true,
-                                tension: 0.4
-                            }
-                        ]
-                    },
-                    options: {
-                        responsive: true,
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                title: {
-                                    display: true,
-                                    text: 'Number of Vulnerabilities'
-                                }
-                            }
-                        },
-                        plugins: {
-                            title: {
-                                display: true,
-                                text: 'Vulnerability Trends'
                             }
                         }
                     }
