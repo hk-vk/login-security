@@ -613,32 +613,6 @@ main {
 .vuln-low {
     color: #2ecc71;
 }
-
-.installation-guide {
-    background: #f9f9f9;
-    border-left: 4px solid #3498db;
-    padding: 15px;
-    margin-top: 20px;
-    border-radius: 4px;
-}
-.installation-guide h3 {
-    margin-top: 0;
-    color: #2c3e50;
-}
-.installation-guide ol {
-    padding-left: 20px;
-}
-.installation-guide code {
-    background: #eee;
-    padding: 2px 5px;
-    border-radius: 3px;
-    font-family: monospace;
-}
-.installation-guide .note {
-    font-style: italic;
-    color: #7f8c8d;
-    margin-top: 10px;
-}
 </style>
 {% endblock %}
 
@@ -739,6 +713,56 @@ main {
             </div>
         </div>
 
+        <!-- Risk Score Overview -->
+        <div class="dashboard-section">
+            <div class="section-header">
+                <h3><i class="fas fa-exclamation-circle"></i> Risk Assessment</h3>
+                <button class="btn-small" onclick="location.href='/admin/security/risk'">View Details</button>
+            </div>
+            
+            <div class="security-grid">
+                <div class="security-card {% if security_metrics.get('overall_risk_score', 0) > 70 %}alert{% endif %}">
+                    <h4>Overall Risk Score</h4>
+                    <div class="metric-circle risk-overall">
+                        <span>{{ security_metrics.get('overall_risk_score', 0) }}</span>
+                    </div>
+                    <div class="metric-info">
+                        <p>Based on {{ security_metrics.get('risk_factors_count', 0) }} factors</p>
+                    </div>
+                </div>
+                
+                <div class="security-card {% if security_metrics.get('brute_force_risk', 0) > 60 %}alert{% endif %}">
+                    <h4>Brute Force Risk</h4>
+                    <div class="metric-circle {% if security_metrics.get('brute_force_risk', 0) > 60 %}risk-high{% elif security_metrics.get('brute_force_risk', 0) > 30 %}risk-medium{% else %}risk-low{% endif %}">
+                        <span>{{ security_metrics.get('brute_force_risk', 0) }}</span>
+                    </div>
+                    <div class="metric-info">
+                        <p>{{ security_metrics.get('blocked_ips_count', 0) }} IPs blocked</p>
+                    </div>
+                </div>
+                
+                <div class="security-card {% if security_metrics.get('account_takeover_risk', 0) > 50 %}alert{% endif %}">
+                    <h4>Account Takeover Risk</h4>
+                    <div class="metric-circle {% if security_metrics.get('account_takeover_risk', 0) > 60 %}risk-high{% elif security_metrics.get('account_takeover_risk', 0) > 30 %}risk-medium{% else %}risk-low{% endif %}">
+                        <span>{{ security_metrics.get('account_takeover_risk', 0) }}</span>
+                    </div>
+                    <div class="metric-info">
+                        <p>{{ security_metrics.get('suspicious_logins_count', 0) }} suspicious logins</p>
+                    </div>
+                </div>
+                
+                <div class="security-card {% if security_metrics.get('data_breach_risk', 0) > 40 %}alert{% endif %}">
+                    <h4>Data Breach Risk</h4>
+                    <div class="metric-circle {% if security_metrics.get('data_breach_risk', 0) > 60 %}risk-high{% elif security_metrics.get('data_breach_risk', 0) > 30 %}risk-medium{% else %}risk-low{% endif %}">
+                        <span>{{ security_metrics.get('data_breach_risk', 0) }}</span>
+                    </div>
+                    <div class="metric-info">
+                        <p>{{ security_metrics.get('unusual_access_count', 0) }} unusual access patterns</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Security Overview -->
         <div class="dashboard-section">
             <div class="section-header">
@@ -786,42 +810,6 @@ main {
                         <p>{{ stats.total_sessions_day }} total today</p>
                     </div>
                 </div>
-            </div>
-        </div>
-        
-        <!-- Installation Instructions -->
-        <div class="dashboard-section">
-            <div class="section-header">
-                <h3><i class="fas fa-download"></i> Installation Guide</h3>
-            </div>
-            
-            <div class="installation-guide">
-                <h3>How to Install Adaptive Login Security System</h3>
-                <ol>
-                    <li><strong>Clone the repository:</strong>
-                        <code>git clone https://github.com/yourusername/adaptive-login-security.git</code>
-                    </li>
-                    <li><strong>Create and activate a virtual environment:</strong>
-                        <code>python -m venv venv</code><br>
-                        <code>source venv/bin/activate</code> (Linux/Mac) or <code>venv\Scripts\activate</code> (Windows)
-                    </li>
-                    <li><strong>Install dependencies:</strong>
-                        <code>pip install -r requirements.txt</code>
-                    </li>
-                    <li><strong>Set up environment variables:</strong>
-                        Create a <code>.env</code> file with the following variables:
-                        <pre>SECRET_KEY=your_secret_key
-DATABASE_URL=sqlite:///app.db
-DEBUG=True</pre>
-                    </li>
-                    <li><strong>Initialize the database:</strong>
-                        <code>python -m app.database.init_db</code>
-                    </li>
-                    <li><strong>Run the application:</strong>
-                        <code>uvicorn app.main:app --reload</code>
-                    </li>
-                </ol>
-                <p class="note">Note: For production deployment, ensure DEBUG is set to False and use a production-ready database like PostgreSQL.</p>
             </div>
         </div>
         

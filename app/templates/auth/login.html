@@ -8,100 +8,6 @@
     display: none;
 }
 
-.captcha-container {
-    margin-bottom: 1.5rem;
-    border: 1px solid var(--gray-300);
-    border-radius: var(--border-radius);
-    overflow: hidden;
-}
-
-.captcha-header {
-    padding: 0.75rem;
-    background-color: var(--gray-100);
-    border-bottom: 1px solid var(--gray-300);
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.captcha-header i {
-    color: var(--primary);
-}
-
-.captcha-header h4 {
-    margin: 0;
-    font-size: 0.95rem;
-    color: var(--gray-900);
-}
-
-.captcha-content {
-    padding: 1rem;
-    background-color: white;
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    align-items: center;
-}
-
-.captcha-image {
-    background-color: var(--gray-50);
-    border: 1px solid var(--gray-300);
-    padding: 0.75rem;
-    border-radius: var(--border-radius);
-    display: flex;
-    justify-content: center;
-    position: relative;
-    overflow: hidden;
-    width: 100%;
-    min-height: 70px;
-}
-
-.captcha-image canvas {
-    max-width: 100%;
-}
-
-.captcha-input {
-    width: 100%;
-}
-
-.captcha-input input {
-    width: 100%;
-    padding: 0.75rem 1rem;
-    border: 1px solid var(--gray-300);
-    border-radius: var(--border-radius);
-    font-size: 1rem;
-    transition: var(--transition);
-}
-
-.captcha-input input:focus {
-    outline: none;
-    border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
-}
-
-.captcha-refresh {
-    background: none;
-    border: none;
-    color: var(--primary);
-    cursor: pointer;
-    position: absolute;
-    top: 0.5rem;
-    right: 0.5rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
-    background-color: white;
-    box-shadow: var(--shadow-sm);
-    transition: var(--transition);
-}
-
-.captcha-refresh:hover {
-    transform: rotate(30deg);
-}
-
 /* Admin login specific styles */
 .admin-auth-card {
     border-top: 4px solid #4F46E5;
@@ -190,26 +96,6 @@
                 </div>
             </div>
 
-            <div id="captcha-section" class="{% if not show_captcha %}hidden{% endif %}">
-                <div class="captcha-container">
-                    <div class="captcha-header">
-                        <i class="fas fa-shield-alt"></i>
-                        <h4>Security Verification</h4>
-                    </div>
-                    <div class="captcha-content">
-                        <div class="captcha-image">
-                            <canvas id="captcha-canvas" width="200" height="70"></canvas>
-                            <button type="button" class="captcha-refresh" onclick="refreshCaptcha()">
-                                <i class="fas fa-sync-alt"></i>
-                            </button>
-                        </div>
-                        <div class="captcha-input">
-                            <input type="text" id="captcha_code" name="captcha_code" placeholder="Enter the code shown above">
-                        </div>
-                    </div>
-                </div>
-            </div>
-
             <div class="form-group remember-forgot">
                 <label class="checkbox-container">
                     <input type="checkbox" name="remember" id="remember">
@@ -223,7 +109,6 @@
             
             <input type="hidden" id="device_fingerprint" name="device_fingerprint" value="">
             <input type="hidden" id="geo_location" name="geo_location" value="">
-            <input type="hidden" id="captcha_token" name="captcha_token" value="">
             {% if admin_redirect %}
             <input type="hidden" name="redirect" value="/admin/dashboard">
             {% endif %}
@@ -337,96 +222,10 @@ function checkGeolocation() {
     }
 }
 
-// CAPTCHA generation using server-side API
-function refreshCaptcha() {
-    fetch('/auth/captcha')
-        .then(response => response.json())
-        .then(data => {
-            const canvas = document.getElementById('captcha-canvas');
-            const ctx = canvas.getContext('2d');
-            
-            // Clear the canvas
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            // Draw background
-            ctx.fillStyle = '#f1f5f9';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            // Draw random lines for distortion
-            for (let i = 0; i < 5; i++) {
-                ctx.beginPath();
-                ctx.moveTo(Math.random() * canvas.width, Math.random() * canvas.height);
-                ctx.lineTo(Math.random() * canvas.width, Math.random() * canvas.height);
-                ctx.strokeStyle = getRandomColor(0.2);
-                ctx.lineWidth = 2;
-                ctx.stroke();
-            }
-            
-            // Draw the text
-            const captchaText = data.captcha;
-            ctx.font = 'bold 32px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            
-            // Draw each character with different styles
-            const textWidth = ctx.measureText(captchaText).width;
-            const startX = (canvas.width - textWidth) / 2 + 15;
-            
-            for (let i = 0; i < captchaText.length; i++) {
-                // Random position adjustments
-                const charX = startX + i * 25 + (Math.random() * 10 - 5);
-                const charY = canvas.height / 2 + (Math.random() * 10 - 5);
-                
-                // Random rotation
-                const rotation = (Math.random() - 0.5) * 0.4;
-                
-                ctx.save();
-                ctx.translate(charX, charY);
-                ctx.rotate(rotation);
-                ctx.fillStyle = getRandomColor(1);
-                ctx.fillText(captchaText[i], 0, 0);
-                ctx.restore();
-            }
-            
-            // Add noise (dots)
-            for (let i = 0; i < 100; i++) {
-                ctx.fillStyle = getRandomColor(0.8);
-                ctx.beginPath();
-                ctx.arc(
-                    Math.random() * canvas.width,
-                    Math.random() * canvas.height,
-                    1,
-                    0,
-                    Math.PI * 2
-                );
-                ctx.fill();
-            }
-        })
-        .catch(error => {
-            console.error('Error fetching CAPTCHA:', error);
-        });
-}
-
-function getRandomColor(alpha) {
-    const colors = [
-        `rgba(79, 70, 229, ${alpha})`,  // primary
-        `rgba(14, 165, 233, ${alpha})`, // secondary
-        `rgba(16, 185, 129, ${alpha})`, // success
-        `rgba(245, 158, 11, ${alpha})`, // warning
-        `rgba(239, 68, 68, ${alpha})`   // danger
-    ];
-    return colors[Math.floor(Math.random() * colors.length)];
-}
-
 // Initialize security features
 document.addEventListener('DOMContentLoaded', function() {
     generateFingerprint();
     checkGeolocation();
-    
-    // Initialize CAPTCHA if needed
-    if (document.getElementById('captcha-section') && !document.getElementById('captcha-section').classList.contains('hidden')) {
-        refreshCaptcha();
-    }
 });
 </script>
 {% endblock %} 

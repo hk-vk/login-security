@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}MFA Verification - Adaptive Login Security System{% endblock %}
+
+{% block extra_css %}
+<style>
+    .mfa-container {
+        max-width: 400px;
+        margin: 2rem auto;
+        padding: 2rem;
+        background: var(--bg-card);
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    .mfa-title {
+        text-align: center;
+        margin-bottom: 1.5rem;
+        color: var(--text-primary);
+    }
+    .mfa-form {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+    .mfa-input {
+        padding: 0.75rem;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        font-size: 1rem;
+        letter-spacing: 0.2em;
+        text-align: center;
+    }
+    .mfa-button {
+        background: var(--primary-color);
+        color: white;
+        padding: 0.75rem;
+        border: none;
+        border-radius: 4px;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+    .mfa-button:hover {
+        background: var(--primary-dark);
+    }
+    .mfa-error {
+        color: var(--danger-color);
+        text-align: center;
+        margin-bottom: 1rem;
+    }
+    .mfa-info {
+        text-align: center;
+        margin-top: 1rem;
+        color: var(--text-secondary);
+    }
+    .mfa-links {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 1rem;
+        font-size: 0.9rem;
+    }
+    .mfa-link {
+        color: var(--primary-color);
+        text-decoration: none;
+    }
+    .mfa-link:hover {
+        text-decoration: underline;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mfa-container">
+    <h2 class="mfa-title">Two-Factor Authentication</h2>
+    
+    {% if error %}
+    <div class="mfa-error">
+        {{ error }}
+    </div>
+    {% endif %}
+    
+    <form class="mfa-form" method="POST" action="{{ url_for('auth.verify_mfa') }}">
+        <input type="hidden" name="email" value="{{ email }}">
+        <input type="hidden" name="redirect" value="{{ redirect_url }}">
+        
+        <div>
+            <input type="text" 
+                   name="mfa_code" 
+                   class="mfa-input" 
+                   placeholder="Enter 6-digit code"
+                   maxlength="6"
+                   pattern="[0-9]{6}"
+                   required
+                   autocomplete="one-time-code">
+        </div>
+        
+        <button type="submit" class="mfa-button">Verify Code</button>
+    </form>
+    
+    <p class="mfa-info">
+        We've sent a verification code to your email address.<br>
+        The code will expire in 5 minutes.
+    </p>
+    
+    <div class="mfa-links">
+        <a href="{{ url_for('auth.login') }}" class="mfa-link">← Back to Login</a>
+        <a href="#" class="mfa-link" onclick="window.location.reload()">Resend Code</a>
+    </div>
+</div>
+{% endblock %} 

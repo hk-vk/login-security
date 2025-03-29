@@ -160,34 +160,6 @@ async def admin_dashboard(
     # Get detailed risk assessment
     risk_assessment = get_detailed_risk_assessment(db, stats, security_metrics)
     
-    # Prepare compliance status
-    compliance = {
-        "password_policy": {
-            "compliant": True, 
-            "details": "Meets requirements (12+ chars, mixed case, numbers, symbols)"
-        },
-        "data_retention": {
-            "compliant": True, 
-            "details": "Data retention policies in place and enforced"
-        },
-        "access_control": {
-            "compliant": security_metrics.get("account_takeover_risk", 0) < 40, 
-            "details": "Role-based access controls implemented"
-        },
-        "audit_logging": {
-            "compliant": True, 
-            "details": "All security events are being logged and retained"
-        }
-    }
-    
-    # Prepare vulnerability metrics
-    vulnerability_metrics = {
-        "critical_count": 0,
-        "high_count": 2,
-        "medium_count": 5,
-        "low_count": 12
-    }
-    
     # Prepare chart data (this would be generated from actual database data)
     chart_data = {
         "userActivity": {
@@ -208,13 +180,6 @@ async def admin_dashboard(
             "labels": ["6:00", "9:00", "12:00", "15:00", "18:00", "21:00", "0:00"],
             "cpu": [35, 42, 65, 58, 72, 48, 30],
             "memory": [45, 52, 60, 68, 75, 62, 50]
-        },
-        "vulnerabilityTrends": {
-            "labels": ["Jan", "Feb", "Mar", "Apr", "May", "Jun"],
-            "critical": [2, 1, 0, 0, 0, 0],
-            "high": [8, 6, 4, 3, 2, 2],
-            "medium": [15, 12, 10, 8, 7, 5],
-            "low": [25, 22, 18, 15, 14, 12]
         }
     }
     
@@ -229,8 +194,6 @@ async def admin_dashboard(
             "recent_activity": recent_activity,
             "critical_alerts": critical_alerts_dicts,
             "risk_assessment": risk_assessment,
-            "compliance": compliance,
-            "vulnerability_metrics": vulnerability_metrics,
             "chart_data": json.dumps(chart_data)
         }
     )

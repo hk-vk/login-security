@@ -118,10 +118,10 @@ async def admin_root(request: Request, access_token: Optional[str] = Cookie(None
     )
 
 # Include routers
-app.include_router(auth.router)              # Auth router
-app.include_router(admin.router, prefix="/admin")  # Admin router
-app.include_router(users.router)             # Users router
-app.include_router(security.router)          # Security router
+app.include_router(auth)              # Auth router
+app.include_router(admin, prefix="/admin")  # Admin router
+app.include_router(users)             # Users router
+app.include_router(security)          # Security router
 
 @app.exception_handler(404)
 async def custom_404_handler(request: Request, exc):
