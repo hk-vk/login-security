@@ -364,6 +364,19 @@
     font-size: 12px;
     overflow-x: auto;
 }
+
+.error-message {
+    background-color: #fee2e2;
+    color: #ef4444;
+    padding: 15px;
+    margin: 20px;
+    border-radius: 8px;
+    border-left: 4px solid #dc2626;
+}
+
+.error-message p {
+    margin: 5px 0;
+}
 </style>
 {% endblock %}
 
@@ -375,8 +388,18 @@
     <p>Users: {{ users }}</p>
     <p>Page: {{ page }} of {{ total_pages }}</p>
     <p>Total Logs: {{ total_logs }}</p>
+    {% if error %}
+    <p class="error">Error: {{ error }}</p>
+    {% endif %}
 </div>
 <button class="debug-toggle" id="debugToggle">Show Debug</button>
+
+{% if error %}
+<div class="error-message">
+    <p>An error occurred while loading the logs: {{ error }}</p>
+    <p>Please try refreshing the page or contact the system administrator if the problem persists.</p>
+</div>
+{% endif %}
 
 <div class="admin-container">
     <div class="admin-sidebar">
@@ -635,21 +658,36 @@ function applyCustomDate() {
 }
 
 function filterLogs() {
-    // Get filter values
-    const searchText = document.getElementById('logSearch').value.toLowerCase();
-    const eventType = document.getElementById('eventType').value;
-    const severity = document.getElementById('severity').value;
-    const userId = document.getElementById('user').value;
-    
-    // Prepare URL with filter parameters
-    const url = new URL(window.location.href);
-    url.searchParams.set('search', searchText);
-    if (eventType) url.searchParams.set('event_type', eventType);
-    if (severity) url.searchParams.set('severity', severity);
-    if (userId) url.searchParams.set('user_id', userId);
-    
-    // Navigate to the filtered URL
-    window.location.href = url.toString();
+    try {
+        // Get filter values
+        const searchText = document.getElementById('logSearch').value.toLowerCase();
+        const eventType = document.getElementById('eventType').value;
+        const severity = document.getElementById('severity').value;
+        const userId = document.getElementById('user').value;
+        
+        // Prepare URL with filter parameters
+        const url = new URL(window.location.href);
+        
+        // Clear existing parameters that we'll be setting
+        url.searchParams.delete('search');
+        url.searchParams.delete('event_type');
+        url.searchParams.delete('severity');
+        url.searchParams.delete('user_id');
+        
+        // Set new parameter values only if they have values
+        if (searchText) url.searchParams.set('search', searchText);
+        if (eventType) url.searchParams.set('event_type', eventType);
+        if (severity) url.searchParams.set('severity', severity);
+        if (userId) url.searchParams.set('user_id', userId);
+        
+        // Always reset to page 1 when filtering
+        url.searchParams.set('page', 1);
+        
+        // Navigate to the filtered URL
+        window.location.href = url.toString();
+    } catch (error) {
+        console.error("Error in filterLogs:", error);
+    }
 }
 
 function changePage(page) {
@@ -671,7 +709,11 @@ function viewLogDetails(logId) {
             document.getElementById('logDescription').textContent = log.description;
             document.getElementById('logStatus').textContent = log.success ? 'Success' : 'Failed';
             document.getElementById('logUserAgent').textContent = log.user_agent;
-            document.getElementById('logData').textContent = '{\n  "risk_score": 85,\n  "device_id": "unknown",\n  "location": {\n    "country": "Unknown",\n    "city": "Unknown"\n  }\n}';
+            
+            // Set JSON data safely using a pre-formatted string
+            document.getElementById('logData').textContent = log.additional_data ? 
+                JSON.stringify(log.additional_data, null, 2) : 
+                '{\n  "info": "No additional data available"\n}';
             
             document.getElementById('logModal').style.display = 'flex';
         })
@@ -688,7 +730,17 @@ function viewLogDetails(logId) {
             document.getElementById('logDescription').textContent = 'Login attempt';
             document.getElementById('logStatus').textContent = 'Failed';
             document.getElementById('logUserAgent').textContent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)';
-            document.getElementById('logData').textContent = '{\n  "risk_score": 85,\n  "device_id": "unknown",\n  "location": {\n    "country": "Unknown",\n    "city": "Unknown"\n  }\n}';
+            
+            // Set JSON data using a string literal instead of JSON.stringify to avoid linter issues
+            document.getElementById('logData').textContent = 
+                '{\n' +
+                '  "risk_score": 85,\n' +
+                '  "device_id": "unknown",\n' +
+                '  "location": {\n' +
+                '    "country": "Unknown",\n' +
+                '    "city": "Unknown"\n' +
+                '  }\n' +
+                '}';
             
             document.getElementById('logModal').style.display = 'flex';
         });
@@ -750,8 +802,13 @@ document.addEventListener('DOMContentLoaded', function() {
         this.textContent = isVisible ? 'Show Debug' : 'Hide Debug';
     });
     
-    // Set default date range to last 7 days
-    setDateRange('week');
+    // Initialize date inputs without auto-filtering
+    const today = new Date();
+    let weekAgo = new Date();
+    weekAgo.setDate(today.getDate() - 7);
+    
+    document.getElementById('startDate').value = weekAgo.toISOString().split('T')[0];
+    document.getElementById('endDate').value = today.toISOString().split('T')[0];
 });
 
 // Close modal when clicking outside

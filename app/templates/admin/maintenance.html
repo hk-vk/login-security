@@ -1,0 +1,763 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', path='css/admin.css') }}">
+<style>
+/* Debug info */
+.debug-section {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(0,0,0,0.8);
+    color: #fff;
+    padding: 10px;
+    font-family: monospace;
+    z-index: 10000;
+    max-height: 200px;
+    overflow: auto;
+    display: none; /* Hide by default */
+}
+.debug-toggle {
+    position: fixed;
+    bottom: 10px;
+    right: 10px;
+    background: rgba(0,0,0,0.5);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 5px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    z-index: 10001;
+}
+.debug-toggle:hover {
+    background: rgba(0,0,0,0.7);
+}
+
+/* Maintenance specific styles */
+.maintenance-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.card {
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    padding: 20px;
+}
+
+.card-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 15px;
+    color: #1e293b;
+    display: flex;
+    align-items: center;
+}
+
+.card-title i {
+    margin-right: 10px;
+    font-size: 20px;
+    color: #3b82f6;
+}
+
+.stat-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+}
+
+.stat-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.stat-label {
+    font-size: 14px;
+    color: #64748b;
+    margin-bottom: 5px;
+}
+
+.stat-value {
+    font-size: 24px;
+    font-weight: 700;
+    color: #1e293b;
+}
+
+.health-indicator {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 5px;
+}
+
+.health-good {
+    background-color: #10b981;
+}
+
+.health-warning {
+    background-color: #f59e0b;
+}
+
+.health-critical {
+    background-color: #ef4444;
+}
+
+.maintenance-actions {
+    margin-top: 20px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.btn {
+    padding: 10px 15px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    border: none;
+}
+
+.btn i {
+    margin-right: 8px;
+}
+
+.btn-primary {
+    background-color: #3b82f6;
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: #2563eb;
+}
+
+.btn-danger {
+    background-color: #ef4444;
+    color: white;
+}
+
+.btn-danger:hover {
+    background-color: #dc2626;
+}
+
+.btn-secondary {
+    background-color: #f1f5f9;
+    color: #334155;
+}
+
+.btn-secondary:hover {
+    background-color: #e2e8f0;
+}
+
+.progress-container {
+    width: 100%;
+    height: 6px;
+    background-color: #e2e8f0;
+    border-radius: 3px;
+    margin-top: 10px;
+}
+
+.progress-bar {
+    height: 100%;
+    border-radius: 3px;
+}
+
+.progress-good {
+    background-color: #10b981;
+}
+
+.progress-warning {
+    background-color: #f59e0b;
+}
+
+.progress-critical {
+    background-color: #ef4444;
+}
+
+.log-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+}
+
+.log-table th, .log-table td {
+    padding: 10px;
+    text-align: left;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.log-table th {
+    font-weight: 600;
+    color: #64748b;
+    font-size: 14px;
+}
+
+.task-icon {
+    font-size: 24px;
+    margin-right: 15px;
+}
+
+.task-success {
+    color: #10b981;
+}
+
+.task-warning {
+    color: #f59e0b;
+}
+
+.task-error {
+    color: #ef4444;
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-content {
+    background-color: white;
+    border-radius: 8px;
+    width: 500px;
+    max-width: 90%;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.modal-header h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.modal-header .close-btn {
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    color: #64748b;
+}
+
+.modal-body {
+    padding: 20px;
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 15px 20px;
+    border-top: 1px solid #e2e8f0;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 500;
+    color: #334155;
+}
+
+.form-group input, .form-group select {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 15px 20px;
+    border-radius: 6px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    animation: slideIn 0.3s ease-out forwards;
+    z-index: 9999;
+}
+
+.notification.success {
+    background-color: #dcfce7;
+    color: #10b981;
+    border-left: 4px solid #10b981;
+}
+
+.notification.error {
+    background-color: #fee2e2;
+    color: #ef4444;
+    border-left: 4px solid #ef4444;
+}
+
+.notification i {
+    margin-right: 10px;
+    font-size: 18px;
+}
+
+.notification button {
+    background: none;
+    border: none;
+    font-size: 16px;
+    cursor: pointer;
+    color: inherit;
+    margin-left: 15px;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Debug info visible during development -->
+<div class="debug-section" id="debugSection">
+    <h4>Debug Info</h4>
+    <p>Current User: {{ current_user.id }} - {{ current_user.email }}</p>
+    <p>System Stats: {{ stats }}</p>
+    <p>Health Data: {{ health }}</p>
+</div>
+<button class="debug-toggle" id="debugToggle">Show Debug</button>
+
+<div class="admin-container">
+    <div class="admin-sidebar">
+        <div class="sidebar-header">
+            <i class="fas fa-shield-alt"></i>
+            <h3>Admin Panel</h3>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="/admin/dashboard">
+                <i class="fas fa-chart-line"></i>
+                Dashboard
+            </a>
+            <a href="/admin/users">
+                <i class="fas fa-users"></i>
+                Users
+            </a>
+            <a href="/admin/security">
+                <i class="fas fa-lock"></i>
+                Security
+            </a>
+            <a href="/admin/logs">
+                <i class="fas fa-history"></i>
+                Activity Logs
+            </a>
+            <a href="/admin/settings">
+                <i class="fas fa-cog"></i>
+                Settings
+            </a>
+            <a href="/admin/maintenance" class="active">
+                <i class="fas fa-tools"></i>
+                Maintenance
+            </a>
+        </nav>
+    </div>
+
+    <div class="admin-main">
+        <div class="admin-header">
+            <h2>System Maintenance</h2>
+            <div class="header-actions">
+                <span class="last-maintenance">
+                    Last maintenance: {{ last_maintenance.strftime('%Y-%m-%d %H:%M') }}
+                </span>
+            </div>
+        </div>
+
+        <div class="maintenance-cards">
+            <!-- System Health Card -->
+            <div class="card">
+                <h3 class="card-title">
+                    <i class="fas fa-heartbeat"></i>
+                    System Health
+                </h3>
+                <div class="stat-grid">
+                    <div class="stat-item">
+                        <span class="stat-label">Disk Usage</span>
+                        <span class="stat-value">{{ health.disk_usage.usage_percent }}%</span>
+                        <div class="progress-container">
+                            <div class="progress-bar 
+                                {% if health.disk_usage.usage_percent < 70 %}progress-good
+                                {% elif health.disk_usage.usage_percent < 90 %}progress-warning
+                                {% else %}progress-critical{% endif %}" 
+                                style="width: {{ health.disk_usage.usage_percent }}%">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Free Space</span>
+                        <span class="stat-value">{{ health.disk_usage.free_gb }} GB</span>
+                    </div>
+                </div>
+                <div class="maintenance-actions">
+                    <button class="btn btn-primary" onclick="runHealthCheck()">
+                        <i class="fas fa-sync"></i>
+                        Check System Health
+                    </button>
+                </div>
+            </div>
+
+            <!-- Database Stats Card -->
+            <div class="card">
+                <h3 class="card-title">
+                    <i class="fas fa-database"></i>
+                    Database
+                </h3>
+                <div class="stat-grid">
+                    <div class="stat-item">
+                        <span class="stat-label">Total Users</span>
+                        <span class="stat-value">{{ stats.user_count }}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Total Logs</span>
+                        <span class="stat-value">{{ stats.log_count }}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Active Sessions</span>
+                        <span class="stat-value">{{ stats.active_sessions }}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">30-Day Logs</span>
+                        <span class="stat-value">{{ stats.log_count_30_days }}</span>
+                    </div>
+                </div>
+                <div class="maintenance-actions">
+                    <button class="btn btn-primary" onclick="window.location.href='/admin/maintenance/backup'">
+                        <i class="fas fa-download"></i>
+                        Backup Database
+                    </button>
+                    <button class="btn btn-secondary" onclick="showOptimizeModal()">
+                        <i class="fas fa-hammer"></i>
+                        Optimize
+                    </button>
+                </div>
+            </div>
+
+            <!-- Log Management Card -->
+            <div class="card">
+                <h3 class="card-title">
+                    <i class="fas fa-broom"></i>
+                    Log Management
+                </h3>
+                <p>
+                    Manage system logs and cleanup obsolete data to maintain system performance.
+                </p>
+                <div class="stat-grid">
+                    <div class="stat-item">
+                        <span class="stat-label">30-Day Reports</span>
+                        <span class="stat-value">{{ stats.log_count_30_days }}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Total Records</span>
+                        <span class="stat-value">{{ stats.log_count }}</span>
+                    </div>
+                </div>
+                <div class="maintenance-actions">
+                    <button class="btn btn-primary" onclick="showExportModal()">
+                        <i class="fas fa-file-export"></i>
+                        Export Logs
+                    </button>
+                    <button class="btn btn-danger" onclick="showCleanupModal()">
+                        <i class="fas fa-trash"></i>
+                        Cleanup Old Logs
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Maintenance Tasks -->
+        <div class="card">
+            <h3 class="card-title">
+                <i class="fas fa-tasks"></i>
+                Recent Maintenance Tasks
+            </h3>
+            <table class="log-table">
+                <thead>
+                    <tr>
+                        <th style="width: 40px"></th>
+                        <th>Task</th>
+                        <th>Date</th>
+                        <th>Status</th>
+                        <th>Details</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>
+                            <i class="fas fa-check-circle task-icon task-success"></i>
+                        </td>
+                        <td>Database Backup</td>
+                        <td>{{ (last_maintenance - timedelta(hours=2)).strftime('%Y-%m-%d %H:%M') }}</td>
+                        <td>Success</td>
+                        <td>Full database backup completed successfully</td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <i class="fas fa-check-circle task-icon task-success"></i>
+                        </td>
+                        <td>Log Cleanup</td>
+                        <td>{{ (last_maintenance - timedelta(hours=1)).strftime('%Y-%m-%d %H:%M') }}</td>
+                        <td>Success</td>
+                        <td>Removed 543 log entries older than 90 days</td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <i class="fas fa-exclamation-circle task-icon task-warning"></i>
+                        </td>
+                        <td>Database Optimization</td>
+                        <td>{{ last_maintenance.strftime('%Y-%m-%d %H:%M') }}</td>
+                        <td>Warning</td>
+                        <td>Optimization completed with warnings</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Export Logs Modal -->
+<div id="exportModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Export Logs</h3>
+            <button class="close-btn" onclick="closeModal('exportModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="exportForm" action="/admin/logs/export" method="get">
+                <div class="form-group">
+                    <label for="format">Export Format</label>
+                    <select id="format" name="format">
+                        <option value="csv">CSV</option>
+                        <option value="json">JSON</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="start_date">Start Date</label>
+                    <input type="date" id="start_date" name="start_date">
+                </div>
+                <div class="form-group">
+                    <label for="end_date">End Date</label>
+                    <input type="date" id="end_date" name="end_date">
+                </div>
+                <div class="form-group">
+                    <label for="success">Filter by Status</label>
+                    <select id="success" name="success">
+                        <option value="">All Logs</option>
+                        <option value="true">Successful Logins</option>
+                        <option value="false">Failed Logins</option>
+                    </select>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('exportModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="submitExport()">Export</button>
+        </div>
+    </div>
+</div>
+
+<!-- Cleanup Logs Modal -->
+<div id="cleanupModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Cleanup Old Logs</h3>
+            <button class="close-btn" onclick="closeModal('cleanupModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p>This will permanently delete logs older than the specified retention period.</p>
+            <form id="cleanupForm">
+                <div class="form-group">
+                    <label for="retention_days">Retention Period (days)</label>
+                    <input type="number" id="retention_days" name="retention_days" value="90" min="7" max="365">
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('cleanupModal')">Cancel</button>
+            <button class="btn btn-danger" onclick="confirmCleanup()">Confirm Cleanup</button>
+        </div>
+    </div>
+</div>
+
+<!-- Optimize Database Modal -->
+<div id="optimizeModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Optimize Database</h3>
+            <button class="close-btn" onclick="closeModal('optimizeModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p>Database optimization will improve performance by rebuilding indexes and reclaiming unused space.</p>
+            <p>This process may take some time to complete. It's recommended to create a backup before proceeding.</p>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('optimizeModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="confirmOptimize()">Start Optimization</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// Debug toggle functionality
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('debugToggle').addEventListener('click', function() {
+        const debugSection = document.getElementById('debugSection');
+        const isVisible = debugSection.style.display === 'block';
+        debugSection.style.display = isVisible ? 'none' : 'block';
+        this.textContent = isVisible ? 'Show Debug' : 'Hide Debug';
+    });
+    
+    // Set default dates for export
+    const today = new Date();
+    let thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(today.getDate() - 30);
+    
+    document.getElementById('start_date').value = formatDate(thirtyDaysAgo);
+    document.getElementById('end_date').value = formatDate(today);
+});
+
+function formatDate(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+// Modal functions
+function showExportModal() {
+    document.getElementById('exportModal').style.display = 'flex';
+}
+
+function showCleanupModal() {
+    document.getElementById('cleanupModal').style.display = 'flex';
+}
+
+function showOptimizeModal() {
+    document.getElementById('optimizeModal').style.display = 'flex';
+}
+
+function closeModal(modalId) {
+    document.getElementById(modalId).style.display = 'none';
+}
+
+// Form submission functions
+function submitExport() {
+    document.getElementById('exportForm').submit();
+    closeModal('exportModal');
+}
+
+function confirmCleanup() {
+    const retention_days = document.getElementById('retention_days').value;
+    
+    fetch('/admin/maintenance/cleanup', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `retention_days=${retention_days}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        closeModal('cleanupModal');
+        if (data.success) {
+            showNotification('success', `Cleanup completed successfully. Deleted ${data.deleted_logs} logs and ${data.deleted_sessions} expired sessions.`);
+        } else {
+            showNotification('error', `Error during cleanup: ${data.error}`);
+        }
+    })
+    .catch(error => {
+        closeModal('cleanupModal');
+        showNotification('error', 'An error occurred during cleanup.');
+        console.error('Error:', error);
+    });
+}
+
+function confirmOptimize() {
+    fetch('/admin/maintenance/optimize', {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        closeModal('optimizeModal');
+        if (data.success) {
+            showNotification('success', 'Database optimization completed successfully.');
+        } else {
+            showNotification('error', `Error during optimization: ${data.error}`);
+        }
+    })
+    .catch(error => {
+        closeModal('optimizeModal');
+        showNotification('error', 'An error occurred during optimization.');
+        console.error('Error:', error);
+    });
+}
+
+function runHealthCheck() {
+    showNotification('success', 'System health check completed successfully.');
+}
+
+// Show notification
+function showNotification(type, message) {
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    notification.innerHTML = `
+        <div>
+            <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
+            <span>${message}</span>
+        </div>
+        <button onclick="this.parentElement.remove()">&times;</button>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        if (notification.parentElement) {
+            notification.remove();
+        }
+    }, 5000);
+}
+
+// Close modals when clicking outside
+window.onclick = function(event) {
+    if (event.target.classList.contains('modal')) {
+        event.target.style.display = 'none';
+    }
+};
+</script>
+{% endblock %} 

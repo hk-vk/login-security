@@ -251,18 +251,11 @@ async def admin_dashboard_minimal(
 async def admin_users(
     request: Request,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_admin_user),
     page: int = Query(1, ge=1),
     search: str = Query(None)
 ):
     """Display user management page"""
-    # Check if user is authenticated
-    if not hasattr(request, "state") or not hasattr(request.state, "user"):
-        print("DEBUG: User not authenticated for users page")
-        return RedirectResponse(url="/admin", status_code=status.HTTP_303_SEE_OTHER)
-    
-    # User is already authenticated and confirmed as admin via the is_admin middleware
-    current_user = request.state.user
-    
     # Items per page
     per_page = 10
     
@@ -292,6 +285,7 @@ async def admin_users(
         {
             "request": request,
             "users": users,
+            "current_user": current_user,
             "page": page,
             "total_pages": total_pages,
             "total_users": total,
@@ -572,14 +566,17 @@ async def admin_security_logs(
     current_user: User = Depends(get_admin_user),
     page: int = Query(1, ge=1),
     filter_success: Optional[bool] = Query(None),
+    event_type: Optional[str] = Query(None),
+    severity: Optional[str] = Query(None),
+    user_id: Optional[int] = Query(None),
     search: str = Query(None)
 ):
     """Display security logs"""
     # Items per page
     per_page = 25
     
-    # Base query
-    query = db.query(LoginHistory).join(User, LoginHistory.user_id == User.id)
+    # Base query - use left join to include logs without users
+    query = db.query(LoginHistory).outerjoin(User, LoginHistory.user_id == User.id)
     
     # Apply filters
     if filter_success is not None:
@@ -587,37 +584,75 @@ async def admin_security_logs(
     
     if search:
         query = query.filter(
-            User.email.contains(search) | 
-            LoginHistory.ip_address.contains(search)
+            (User.email.contains(search) if User.email is not None else False) | 
+            (LoginHistory.ip_address.contains(search) if LoginHistory.ip_address is not None else False)
         )
     
-    # Calculate pagination
-    total = query.count()
-    total_pages = (total + per_page - 1) // per_page
+    if event_type:
+        query = query.filter(LoginHistory.event_type == event_type)
+        
+    if severity:
+        if severity == 'info':
+            query = query.filter(LoginHistory.success == True)
+        elif severity == 'error':
+            query = query.filter(LoginHistory.success == False)
     
-    # Adjust current page if needed
-    page = min(page, total_pages) if total_pages > 0 else 1
+    if user_id:
+        query = query.filter(LoginHistory.user_id == user_id)
     
-    # Get logs for current page
-    logs = query.order_by(LoginHistory.timestamp.desc()).offset((page - 1) * per_page).limit(per_page).all()
-    
-    # Get users for the logs
-    user_ids = [log.user_id for log in logs if log.user_id]
-    users = {user.id: user for user in db.query(User).filter(User.id.in_(user_ids)).all()}
-    
-    return templates.TemplateResponse(
-        "admin/logs.html",
-        {
-            "request": request,
-            "logs": logs,
-            "users": users,
-            "page": page,
-            "total_pages": total_pages,
-            "total_logs": total,
-            "filter_success": filter_success,
-            "search": search or ""
-        }
-    )
+    try:
+        # Calculate pagination
+        total = query.count()
+        total_pages = (total + per_page - 1) // per_page if total > 0 else 1
+        
+        # Adjust current page if needed
+        page = min(page, total_pages) if total_pages > 0 else 1
+        
+        # Get logs for current page
+        logs = query.order_by(LoginHistory.timestamp.desc()).offset((page - 1) * per_page).limit(per_page).all()
+        
+        # Get users for the logs - safely handle logs without user_id
+        user_ids = [log.user_id for log in logs if log.user_id is not None]
+        users = {}
+        if user_ids:
+            users = {user.id: user for user in db.query(User).filter(User.id.in_(user_ids)).all()}
+        
+        return templates.TemplateResponse(
+            "admin/logs.html",
+            {
+                "request": request,
+                "logs": logs,
+                "users": users,
+                "page": page,
+                "total_pages": total_pages,
+                "total_logs": total,
+                "filter_success": filter_success,
+                "event_type": event_type,
+                "severity": severity,
+                "user_id": user_id,
+                "search": search or ""
+            }
+        )
+    except Exception as e:
+        print(f"Error in admin_security_logs: {str(e)}")
+        # Return a basic version of the template with error information
+        return templates.TemplateResponse(
+            "admin/logs.html",
+            {
+                "request": request,
+                "logs": [],
+                "users": {},
+                "page": 1,
+                "total_pages": 1,
+                "total_logs": 0,
+                "filter_success": None,
+                "event_type": None,
+                "severity": None, 
+                "user_id": None,
+                "search": "",
+                "error": str(e)
+            }
+        )
 
 # Session management
 @router.get("/sessions", response_class=HTMLResponse)
