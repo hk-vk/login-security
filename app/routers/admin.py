@@ -708,4 +708,73 @@ async def admin_revoke_session(
     return RedirectResponse(
         url="/admin/sessions",
         status_code=status.HTTP_303_SEE_OTHER
+    )
+
+# Security settings
+@router.get("/security", response_class=HTMLResponse)
+async def admin_security_page(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_admin_user)
+):
+    """Display security overview page"""
+    # Get current security settings
+    settings = db.query(SecuritySettings).first()
+    
+    # If no settings exist, create default settings
+    if not settings:
+        settings = SecuritySettings()
+        db.add(settings)
+        db.commit()
+        db.refresh(settings)
+    
+    # Get recent security events
+    recent_events = db.query(LoginHistory).filter(
+        LoginHistory.success == False
+    ).order_by(LoginHistory.timestamp.desc()).limit(10).all()
+    
+    # Get statistics
+    now = datetime.utcnow()
+    day_ago = now - timedelta(days=1)
+    week_ago = now - timedelta(weeks=1)
+    
+    # Failed login attempts
+    failed_today = db.query(LoginHistory).filter(
+        LoginHistory.success == False,
+        LoginHistory.timestamp >= day_ago
+    ).count()
+    
+    failed_week = db.query(LoginHistory).filter(
+        LoginHistory.success == False,
+        LoginHistory.timestamp >= week_ago
+    ).count()
+    
+    # Unique IPs with failed attempts
+    unique_ips_today = db.query(LoginHistory.ip_address).filter(
+        LoginHistory.success == False,
+        LoginHistory.timestamp >= day_ago
+    ).distinct().count()
+    
+    # Get blocked IPs (if you have a table for this)
+    blocked_ips = 15  # Example value, replace with actual query
+    
+    # MFA adoption rate
+    total_active_users = db.query(User).filter(User.is_active == True).count()
+    mfa_users = db.query(User).filter(User.is_active == True, User.mfa_enabled == True).count()
+    mfa_rate = (mfa_users / total_active_users * 100) if total_active_users > 0 else 0
+    
+    return templates.TemplateResponse(
+        "admin/security.html",
+        {
+            "request": request,
+            "settings": settings,
+            "recent_events": recent_events,
+            "stats": {
+                "failed_today": failed_today,
+                "failed_week": failed_week,
+                "unique_ips_today": unique_ips_today,
+                "blocked_ips": blocked_ips,
+                "mfa_rate": round(mfa_rate, 1)
+            }
+        }
     ) 

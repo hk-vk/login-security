@@ -38,6 +38,23 @@ main {
     z-index: 10000;
     max-height: 200px;
     overflow: auto;
+    display: none; /* Hide by default */
+}
+.debug-toggle {
+    position: fixed;
+    bottom: 10px;
+    right: 10px;
+    background: rgba(0,0,0,0.5);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 5px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    z-index: 10001;
+}
+.debug-toggle:hover {
+    background: rgba(0,0,0,0.7);
 }
 .admin-container {
     padding: 20px;
@@ -108,8 +125,8 @@ main {
 
 {% block content %}
 <!-- Debug info visible during development -->
-<div class="debug-section">
-    <h4>Debug Info (Remove in production)</h4>
+<div class="debug-section" id="debugSection">
+    <h4>Debug Info</h4>
     <p>User: {{ user }}</p>
     <p>Stats: {{ stats }}</p>
     <p>Security Metrics: {{ security_metrics }}</p>
@@ -117,6 +134,7 @@ main {
     <p>Activities Count: {% if recent_activity %}{{ recent_activity|length }}{% else %}0{% endif %}</p>
     <p>Alerts Count: {% if critical_alerts %}{{ critical_alerts|length }}{% else %}0{% endif %}</p>
 </div>
+<button class="debug-toggle" id="debugToggle">Show Debug</button>
 
 <div class="admin-container">
     <div class="admin-sidebar">
@@ -786,6 +804,14 @@ document.addEventListener('DOMContentLoaded', function() {
                      .replace(/'/g, "&#039;");
             }
         }
+
+        // Debug toggle functionality
+        document.getElementById('debugToggle').addEventListener('click', function() {
+            const debugSection = document.getElementById('debugSection');
+            const isVisible = debugSection.style.display === 'block';
+            debugSection.style.display = isVisible ? 'none' : 'block';
+            this.textContent = isVisible ? 'Show Debug' : 'Hide Debug';
+        });
 
         console.log("Admin dashboard initialization complete!");
     } catch (error) {

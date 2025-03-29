@@ -1,6 +1,51 @@
 {% extends "base.html" %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', path='css/admin.css') }}">
+<style>
+/* Debug info */
+.debug-section {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(0,0,0,0.8);
+    color: #fff;
+    padding: 10px;
+    font-family: monospace;
+    z-index: 10000;
+    max-height: 200px;
+    overflow: auto;
+    display: none; /* Hide by default */
+}
+.debug-toggle {
+    position: fixed;
+    bottom: 10px;
+    right: 10px;
+    background: rgba(0,0,0,0.5);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 5px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    z-index: 10001;
+}
+.debug-toggle:hover {
+    background: rgba(0,0,0,0.7);
+}
+</style>
+{% endblock %}
+
 {% block content %}
+<!-- Debug info visible during development -->
+<div class="debug-section" id="debugSection">
+    <h4>Debug Info</h4>
+    <p>Settings: {{ settings }}</p>
+    <p>Current User: {{ current_user.id }} - {{ current_user.email }}</p>
+</div>
+<button class="debug-toggle" id="debugToggle">Show Debug</button>
+
 <div class="admin-container">
     <div class="admin-sidebar">
         <div class="sidebar-header">
@@ -35,48 +80,138 @@
         <div class="admin-header">
             <h2>System Settings</h2>
             <div class="header-actions">
-                <button class="btn-primary" onclick="saveSettings()">
+                <button class="btn-primary" onclick="saveAllSettings()">
                     <i class="fas fa-save"></i>
-                    Save Changes
+                    Save All Changes
                 </button>
             </div>
         </div>
 
-        <div class="settings-grid">
-            <!-- General Settings -->
+        <div class="settings-container">
+            <!-- Account Security Settings -->
             <div class="settings-card">
                 <div class="card-header">
-                    <h3>
-                        <i class="fas fa-sliders-h"></i>
-                        General Settings
-                    </h3>
+                    <h3><i class="fas fa-lock"></i> Account Security</h3>
                 </div>
                 <div class="card-body">
-                    <div class="form-group">
-                        <label>Site Name</label>
-                        <input type="text" id="siteName" value="Adaptive Login Security System">
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <label>Password Requirements</label>
+                            <p>Set minimum requirements for user passwords</p>
+                        </div>
+                        <div class="setting-controls">
+                            <div class="form-group">
+                                <label>Minimum Length</label>
+                                <input type="number" id="minPasswordLength" value="8" min="6" max="24">
+                            </div>
+                            <div class="form-group">
+                                <label>Required Character Types</label>
+                                <div class="checkbox-group">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" checked id="requireUppercase"> Uppercase
+                                    </label>
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" checked id="requireLowercase"> Lowercase
+                                    </label>
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" checked id="requireNumbers"> Numbers
+                                    </label>
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" checked id="requireSpecial"> Special Characters
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label>Admin Email</label>
-                        <input type="email" id="adminEmail" value="admin@example.com">
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <label>Account Lockout</label>
+                            <p>Lock accounts after failed login attempts</p>
+                        </div>
+                        <div class="setting-controls">
+                            <div class="toggle-switch">
+                                <input type="checkbox" id="enableLockout" checked>
+                                <label for="enableLockout"></label>
+                            </div>
+                            <div class="form-group inline-group">
+                                <label>Max Attempts</label>
+                                <input type="number" id="maxLoginAttempts" value="5" min="3" max="10">
+                            </div>
+                            <div class="form-group inline-group">
+                                <label>Lockout Duration</label>
+                                <div class="input-suffix">
+                                    <input type="number" id="lockoutDuration" value="30" min="5">
+                                    <span>minutes</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label>Time Zone</label>
-                        <select id="timeZone">
-                            <option value="UTC">UTC</option>
-                            <option value="America/New_York">Eastern Time</option>
-                            <option value="America/Chicago">Central Time</option>
-                            <option value="America/Denver">Mountain Time</option>
-                            <option value="America/Los_Angeles">Pacific Time</option>
-                        </select>
+                </div>
+            </div>
+
+            <!-- Authentication Settings -->
+            <div class="settings-card">
+                <div class="card-header">
+                    <h3><i class="fas fa-user-shield"></i> Authentication</h3>
+                </div>
+                <div class="card-body">
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <label>Multi-Factor Authentication</label>
+                            <p>Enable MFA requirements for users</p>
+                        </div>
+                        <div class="setting-controls">
+                            <div class="radio-group">
+                                <label class="radio-label">
+                                    <input type="radio" name="mfaPolicy" value="optional" checked> Optional
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="mfaPolicy" value="admins"> Required for Admins
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="mfaPolicy" value="all"> Required for All Users
+                                </label>
+                            </div>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label>Date Format</label>
-                        <select id="dateFormat">
-                            <option value="YYYY-MM-DD">YYYY-MM-DD</option>
-                            <option value="MM/DD/YYYY">MM/DD/YYYY</option>
-                            <option value="DD/MM/YYYY">DD/MM/YYYY</option>
-                        </select>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <label>CAPTCHA Protection</label>
+                            <p>Apply CAPTCHA to prevent automated attacks</p>
+                        </div>
+                        <div class="setting-controls">
+                            <div class="checkbox-group">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" checked id="enableLoginCaptcha"> Login Form
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" checked id="enableRegisterCaptcha"> Registration Form
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" checked id="enableResetCaptcha"> Password Reset
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <label>Session Management</label>
+                            <p>Configure user session settings</p>
+                        </div>
+                        <div class="setting-controls">
+                            <div class="form-group">
+                                <label>Session Timeout</label>
+                                <div class="input-suffix">
+                                    <input type="number" id="sessionTimeout" value="30" min="5" max="1440">
+                                    <span>minutes</span>
+                                </div>
+                            </div>
+                            <div class="toggle-switch with-label">
+                                <input type="checkbox" id="enforceSingleSession" checked>
+                                <label for="enforceSingleSession"></label>
+                                <span>Limit to one active session per user</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -84,116 +219,147 @@
             <!-- Email Settings -->
             <div class="settings-card">
                 <div class="card-header">
-                    <h3>
-                        <i class="fas fa-envelope"></i>
-                        Email Settings
-                    </h3>
+                    <h3><i class="fas fa-envelope"></i> Email Configuration</h3>
                 </div>
                 <div class="card-body">
-                    <div class="form-group">
-                        <label>SMTP Server</label>
-                        <input type="text" id="smtpServer" value="smtp.example.com">
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <label>SMTP Settings</label>
+                            <p>Configure outgoing email service</p>
+                        </div>
+                        <div class="setting-controls">
+                            <div class="form-group">
+                                <label>SMTP Server</label>
+                                <input type="text" id="smtpServer" value="smtp.example.com">
+                            </div>
+                            <div class="form-group">
+                                <label>SMTP Port</label>
+                                <input type="number" id="smtpPort" value="587">
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group half">
+                                    <label>Username</label>
+                                    <input type="text" id="smtpUsername" value="notifications@example.com">
+                                </div>
+                                <div class="form-group half">
+                                    <label>Password</label>
+                                    <input type="password" id="smtpPassword" value="••••••••">
+                                </div>
+                            </div>
+                            <div class="toggle-switch with-label">
+                                <input type="checkbox" id="enableTLS" checked>
+                                <label for="enableTLS"></label>
+                                <span>Use TLS encryption</span>
+                            </div>
+                            <button class="btn-secondary" onclick="testEmailSettings()">
+                                <i class="fas fa-paper-plane"></i>
+                                Test Connection
+                            </button>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label>SMTP Port</label>
-                        <input type="number" id="smtpPort" value="587">
-                    </div>
-                    <div class="form-group">
-                        <label>SMTP Username</label>
-                        <input type="text" id="smtpUsername">
-                    </div>
-                    <div class="form-group">
-                        <label>SMTP Password</label>
-                        <input type="password" id="smtpPassword">
-                    </div>
-                    <div class="form-group">
-                        <label class="checkbox">
-                            <input type="checkbox" id="smtpTLS" checked>
-                            <span>Use TLS</span>
-                        </label>
-                    </div>
-                    <div class="form-group">
-                        <button class="btn-secondary" onclick="testEmailSettings()">
-                            <i class="fas fa-paper-plane"></i>
-                            Test Email Settings
-                        </button>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <label>Email Notifications</label>
+                            <p>Configure system notification emails</p>
+                        </div>
+                        <div class="setting-controls">
+                            <div class="checkbox-group">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" checked id="notifyRegistration"> New User Registrations
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" checked id="notifyFailedLogins"> Failed Login Attempts
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" checked id="notifyPasswordResets"> Password Resets
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="notifySystemErrors"> System Errors
+                                </label>
+                            </div>
+                            <div class="form-group">
+                                <label>Admin Notification Email</label>
+                                <input type="email" id="adminEmail" value="admin@example.com">
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Backup Settings -->
+            <!-- System Settings -->
             <div class="settings-card">
                 <div class="card-header">
-                    <h3>
-                        <i class="fas fa-database"></i>
-                        Backup Settings
-                    </h3>
+                    <h3><i class="fas fa-cogs"></i> System</h3>
                 </div>
                 <div class="card-body">
-                    <div class="form-group">
-                        <label>Automatic Backups</label>
-                        <select id="backupFrequency">
-                            <option value="daily">Daily</option>
-                            <option value="weekly">Weekly</option>
-                            <option value="monthly">Monthly</option>
-                            <option value="never">Never</option>
-                        </select>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <label>Logging</label>
+                            <p>Configure system logging settings</p>
+                        </div>
+                        <div class="setting-controls">
+                            <div class="form-group">
+                                <label>Log Level</label>
+                                <select id="logLevel">
+                                    <option>Debug</option>
+                                    <option selected>Info</option>
+                                    <option>Warning</option>
+                                    <option>Error</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Log Retention</label>
+                                <div class="input-suffix">
+                                    <input type="number" id="logRetention" value="30" min="7" max="365">
+                                    <span>days</span>
+                                </div>
+                            </div>
+                            <div class="toggle-switch with-label">
+                                <input type="checkbox" id="enableAuditLog" checked>
+                                <label for="enableAuditLog"></label>
+                                <span>Enable detailed audit logging</span>
+                            </div>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label>Backup Time</label>
-                        <input type="time" id="backupTime" value="00:00">
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <label>Registration</label>
+                            <p>Control user registration settings</p>
+                        </div>
+                        <div class="setting-controls">
+                            <div class="toggle-switch with-label">
+                                <input type="checkbox" id="allowRegistration" checked>
+                                <label for="allowRegistration"></label>
+                                <span>Allow new user registration</span>
+                            </div>
+                            <div class="toggle-switch with-label">
+                                <input type="checkbox" id="requireEmailVerification" checked>
+                                <label for="requireEmailVerification"></label>
+                                <span>Require email verification</span>
+                            </div>
+                            <div class="toggle-switch with-label">
+                                <input type="checkbox" id="requireAdminApproval">
+                                <label for="requireAdminApproval"></label>
+                                <span>Require admin approval for new accounts</span>
+                            </div>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label>Retention Period (days)</label>
-                        <input type="number" id="retentionPeriod" value="30" min="1" max="365">
-                    </div>
-                    <div class="form-group">
-                        <label>Backup Storage</label>
-                        <select id="backupStorage">
-                            <option value="local">Local Storage</option>
-                            <option value="s3">Amazon S3</option>
-                            <option value="gcs">Google Cloud Storage</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <button class="btn-secondary" onclick="createBackup()">
-                            <i class="fas fa-download"></i>
-                            Create Backup Now
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Integration Settings -->
-            <div class="settings-card">
-                <div class="card-header">
-                    <h3>
-                        <i class="fas fa-plug"></i>
-                        Integrations
-                    </h3>
-                </div>
-                <div class="card-body">
-                    <div class="form-group">
-                        <label>Google Analytics ID</label>
-                        <input type="text" id="analyticsId" placeholder="UA-XXXXXXXXX-X">
-                    </div>
-                    <div class="form-group">
-                        <label>reCAPTCHA Site Key</label>
-                        <input type="text" id="recaptchaSiteKey">
-                    </div>
-                    <div class="form-group">
-                        <label>reCAPTCHA Secret Key</label>
-                        <input type="password" id="recaptchaSecretKey">
-                    </div>
-                    <div class="form-group">
-                        <label>Slack Webhook URL</label>
-                        <input type="url" id="slackWebhook" placeholder="https://hooks.slack.com/...">
-                    </div>
-                    <div class="form-group">
-                        <button class="btn-secondary" onclick="testIntegrations()">
-                            <i class="fas fa-check-circle"></i>
-                            Test Integrations
-                        </button>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <label>Maintenance Mode</label>
+                            <p>Take the system offline for maintenance</p>
+                        </div>
+                        <div class="setting-controls">
+                            <div class="toggle-switch with-label">
+                                <input type="checkbox" id="maintenanceMode">
+                                <label for="maintenanceMode"></label>
+                                <span>Enable maintenance mode</span>
+                            </div>
+                            <div class="form-group">
+                                <label>Maintenance Message</label>
+                                <textarea id="maintenanceMessage" rows="3">The system is currently undergoing scheduled maintenance. Please try again later.</textarea>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -202,41 +368,79 @@
 </div>
 
 <script>
-function saveSettings() {
-    // Collect all settings
+// Save all settings
+function saveAllSettings() {
     const settings = {
-        general: {
-            siteName: document.getElementById('siteName').value,
-            adminEmail: document.getElementById('adminEmail').value,
-            timeZone: document.getElementById('timeZone').value,
-            dateFormat: document.getElementById('dateFormat').value
+        // Password settings
+        password: {
+            minLength: parseInt(document.getElementById('minPasswordLength').value),
+            requireUppercase: document.getElementById('requireUppercase').checked,
+            requireLowercase: document.getElementById('requireLowercase').checked,
+            requireNumbers: document.getElementById('requireNumbers').checked,
+            requireSpecial: document.getElementById('requireSpecial').checked
         },
+        // Account lockout
+        accountLockout: {
+            enabled: document.getElementById('enableLockout').checked,
+            maxAttempts: parseInt(document.getElementById('maxLoginAttempts').value),
+            duration: parseInt(document.getElementById('lockoutDuration').value)
+        },
+        // MFA
+        mfa: {
+            policy: document.querySelector('input[name="mfaPolicy"]:checked').value
+        },
+        // CAPTCHA
+        captcha: {
+            loginForm: document.getElementById('enableLoginCaptcha').checked,
+            registrationForm: document.getElementById('enableRegisterCaptcha').checked,
+            passwordReset: document.getElementById('enableResetCaptcha').checked
+        },
+        // Session
+        session: {
+            timeout: parseInt(document.getElementById('sessionTimeout').value),
+            singleSession: document.getElementById('enforceSingleSession').checked
+        },
+        // Email
         email: {
-            smtpServer: document.getElementById('smtpServer').value,
-            smtpPort: document.getElementById('smtpPort').value,
-            smtpUsername: document.getElementById('smtpUsername').value,
-            smtpPassword: document.getElementById('smtpPassword').value,
-            smtpTLS: document.getElementById('smtpTLS').checked
+            smtp: {
+                server: document.getElementById('smtpServer').value,
+                port: parseInt(document.getElementById('smtpPort').value),
+                username: document.getElementById('smtpUsername').value,
+                password: document.getElementById('smtpPassword').value,
+                tls: document.getElementById('enableTLS').checked
+            },
+            notifications: {
+                registration: document.getElementById('notifyRegistration').checked,
+                failedLogins: document.getElementById('notifyFailedLogins').checked,
+                passwordResets: document.getElementById('notifyPasswordResets').checked,
+                systemErrors: document.getElementById('notifySystemErrors').checked,
+                adminEmail: document.getElementById('adminEmail').value
+            }
         },
-        backup: {
-            frequency: document.getElementById('backupFrequency').value,
-            time: document.getElementById('backupTime').value,
-            retentionPeriod: document.getElementById('retentionPeriod').value,
-            storage: document.getElementById('backupStorage').value
-        },
-        integrations: {
-            analyticsId: document.getElementById('analyticsId').value,
-            recaptchaSiteKey: document.getElementById('recaptchaSiteKey').value,
-            recaptchaSecretKey: document.getElementById('recaptchaSecretKey').value,
-            slackWebhook: document.getElementById('slackWebhook').value
+        // System
+        system: {
+            logging: {
+                level: document.getElementById('logLevel').value,
+                retention: parseInt(document.getElementById('logRetention').value),
+                auditLog: document.getElementById('enableAuditLog').checked
+            },
+            registration: {
+                allowed: document.getElementById('allowRegistration').checked,
+                requireEmailVerification: document.getElementById('requireEmailVerification').checked,
+                requireAdminApproval: document.getElementById('requireAdminApproval').checked
+            },
+            maintenance: {
+                enabled: document.getElementById('maintenanceMode').checked,
+                message: document.getElementById('maintenanceMessage').value
+            }
         }
     };
 
     // Send settings to server
-    fetch('/api/admin/settings', {
+    fetch('/admin/settings/update', {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
         },
         body: JSON.stringify(settings)
     })
@@ -245,94 +449,77 @@ function saveSettings() {
         if (data.success) {
             showNotification('Settings saved successfully', 'success');
         } else {
-            showNotification('Failed to save settings', 'error');
+            showNotification('Failed to save settings: ' + data.message, 'error');
         }
     })
     .catch(error => {
-        showNotification('An error occurred', 'error');
-        console.error('Error:', error);
+        console.error('Error saving settings:', error);
+        showNotification('An error occurred while saving settings', 'error');
     });
 }
 
+// Test email settings
 function testEmailSettings() {
-    // Test email settings
-    fetch('/api/admin/settings/test-email', {
+    const settings = {
+        server: document.getElementById('smtpServer').value,
+        port: parseInt(document.getElementById('smtpPort').value),
+        username: document.getElementById('smtpUsername').value,
+        password: document.getElementById('smtpPassword').value,
+        tls: document.getElementById('enableTLS').checked,
+        testEmail: document.getElementById('adminEmail').value
+    };
+
+    // Send test email
+    fetch('/admin/settings/test-email', {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-            server: document.getElementById('smtpServer').value,
-            port: document.getElementById('smtpPort').value,
-            username: document.getElementById('smtpUsername').value,
-            password: document.getElementById('smtpPassword').value,
-            tls: document.getElementById('smtpTLS').checked
-        })
+        body: JSON.stringify(settings)
     })
     .then(response => response.json())
     .then(data => {
         if (data.success) {
             showNotification('Test email sent successfully', 'success');
         } else {
-            showNotification('Failed to send test email', 'error');
+            showNotification('Failed to send test email: ' + data.message, 'error');
         }
     })
     .catch(error => {
-        showNotification('An error occurred', 'error');
-        console.error('Error:', error);
+        console.error('Error testing email:', error);
+        showNotification('An error occurred while testing email settings', 'error');
     });
 }
 
-function createBackup() {
-    // Create backup
-    fetch('/api/admin/backup/create', {
-        method: 'POST'
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showNotification('Backup created successfully', 'success');
-        } else {
-            showNotification('Failed to create backup', 'error');
-        }
-    })
-    .catch(error => {
-        showNotification('An error occurred', 'error');
-        console.error('Error:', error);
-    });
-}
-
-function testIntegrations() {
-    // Test integrations
-    fetch('/api/admin/settings/test-integrations', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            analyticsId: document.getElementById('analyticsId').value,
-            recaptchaSiteKey: document.getElementById('recaptchaSiteKey').value,
-            recaptchaSecretKey: document.getElementById('recaptchaSecretKey').value,
-            slackWebhook: document.getElementById('slackWebhook').value
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showNotification('Integrations tested successfully', 'success');
-        } else {
-            showNotification('Failed to test integrations', 'error');
-        }
-    })
-    .catch(error => {
-        showNotification('An error occurred', 'error');
-        console.error('Error:', error);
-    });
-}
-
+// Show notification
 function showNotification(message, type) {
-    // Add notification implementation
-    alert(message);
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    notification.innerHTML = `
+        <span>${message}</span>
+        <button onclick="this.parentElement.remove()">×</button>
+    `;
+    
+    // Add to document
+    document.body.appendChild(notification);
+    
+    // Auto remove after 5 seconds
+    setTimeout(() => {
+        if (notification.parentElement) {
+            notification.remove();
+        }
+    }, 5000);
 }
+
+// Debug toggle functionality
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('debugToggle').addEventListener('click', function() {
+        const debugSection = document.getElementById('debugSection');
+        const isVisible = debugSection.style.display === 'block';
+        debugSection.style.display = isVisible ? 'none' : 'block';
+        this.textContent = isVisible ? 'Show Debug' : 'Hide Debug';
+    });
+});
 </script>
 {% endblock %} 
