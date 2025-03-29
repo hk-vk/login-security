@@ -10,6 +10,10 @@ import qrcode
 import qrcode.image.svg
 import io
 import base64
+import json
+import uuid
+import time
+from fastapi import BackgroundTasks
 
 from app.database.database import get_db
 from app.models.user import User
@@ -27,6 +31,7 @@ from app.utils.security import (
     detect_suspicious_login
 )
 from app.utils.device import generate_device_fingerprint, get_device_name, parse_user_agent
+from app.utils.email import send_verification_email, verify_code
 
 router = APIRouter(tags=["authentication"], prefix="/auth")
 
@@ -215,6 +220,7 @@ async def login_page(request: Request):
 @router.post("/login")
 async def login(
     request: Request,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     email: str = Form(...),
     password: str = Form(...),
@@ -224,52 +230,170 @@ async def login(
     geo_location: str = Form(None),
     redirect: str = Form(None)
 ):
-    """Handle the login form submission"""
+    """Login user"""
+    # Check if CAPTCHA is required and validate
+    if captcha_code:
+        print(f"DEBUG: CAPTCHA code submitted: {captcha_code}")
+        captcha_valid = False
+        
+        # Get CAPTCHA token from cookie and validate
+        captcha_cookie = request.cookies.get("captcha_token")
+        if captcha_cookie:
+            print(f"DEBUG: CAPTCHA token cookie found")
+            try:
+                # Decode the token
+                token_data = json.loads(captcha_cookie)
+                expected_code = token_data.get("code")
+                expiry = token_data.get("expiry")
+                print(f"DEBUG: Expected CAPTCHA: {expected_code}, Expiry: {expiry}")
+                
+                # Check if code matches and not expired
+                if expected_code == captcha_code and expiry > time.time():
+                    captcha_valid = True
+                    print("DEBUG: CAPTCHA validation successful")
+                else:
+                    print("DEBUG: CAPTCHA validation failed: wrong code or expired")
+            except:
+                print("DEBUG: Error decoding CAPTCHA token")
+        
+        if not captcha_valid:
+            return templates.TemplateResponse(
+                "auth/login.html",
+                {
+                    "request": request,
+                    "error": "Invalid CAPTCHA code",
+                    "email": email,
+                    "show_captcha": True
+                }
+            )
     
-    # Debug info
-    print(f"DEBUG: Login attempt for: {email}")
-    print(f"DEBUG: Redirect parameter: {redirect}")
-    
-    # Find the user
+    # Check if user exists
     user = db.query(User).filter(User.email == email).first()
-    
-    # Prepare response data for template
-    template_data = {
-        "request": request,
-        "email": email
-    }
-    
-    # Check if the user exists
     if not user:
-        print(f"DEBUG: User not found: {email}")
-        template_data["error"] = "Invalid email or password"
-        return templates.TemplateResponse("auth/login.html", template_data)
+        # Add code to increment failed login counter for IP
+        return templates.TemplateResponse(
+            "auth/login.html",
+            {
+                "request": request,
+                "error": "Invalid email or password",
+                "email": email,
+                "show_captcha": True  # Show CAPTCHA after failed login
+            }
+        )
     
-    # Verify the password
+    # Check if account is locked
+    if check_account_lockout(user):
+        print(f"DEBUG: Account locked: {user.email}")
+        return templates.TemplateResponse(
+            "auth/login.html",
+            {
+                "request": request,
+                "error": f"Account locked. Please try again later or contact support.",
+                "email": email,
+                "show_captcha": True
+            }
+        )
+    
+    # Verify password
     if not verify_password(password, user.hashed_password):
-        print(f"DEBUG: Invalid password for user: {email}")
-        template_data["error"] = "Invalid email or password"
-        return templates.TemplateResponse("auth/login.html", template_data)
+        # Handle failed login
+        handle_failed_login(db, user, request)
+        
+        # Create login history entry
+        create_login_history(
+            db, user, False, request, 
+            failure_reason="Invalid password"
+        )
+        
+        return templates.TemplateResponse(
+            "auth/login.html",
+            {
+                "request": request,
+                "error": "Invalid email or password",
+                "email": email,
+                "show_captcha": True
+            }
+        )
     
-    print(f"DEBUG: Successful login for {email}, superuser: {user.is_superuser}")
+    # Handle successful login
+    handle_successful_login(db, user)
     
+    # Check for MFA
+    if user.mfa_enabled:
+        # Create a temporary session to track the MFA verification
+        session_id = str(uuid.uuid4())
+        
+        # Store session data in Redis or database in a real app
+        # For this example, we'll set a cookie with limited data
+        response = RedirectResponse(
+            url="/auth/mfa/verify",
+            status_code=status.HTTP_303_SEE_OTHER
+        )
+        
+        # Store user ID and session ID in cookie
+        response.set_cookie(
+            key="mfa_session",
+            value=json.dumps({
+                "session_id": session_id,
+                "email": user.email,
+                "user_id": user.id,
+                "remember": remember,
+                "redirect": redirect
+            }),
+            httponly=True,
+            max_age=900,  # 15 minutes
+            path="/"
+        )
+        
+        # Send verification email
+        send_verification_email(background_tasks, user.email)
+        
+        return response
+    
+    # If no MFA, complete login
     # Create login history entry
-    history = create_login_history(
-        db=db,
-        user=user,
-        success=True,
-        request=request
-    )
+    create_login_history(db, user, True, request)
     
     # Create user session
-    token, session = create_session(db, user, request)
+    device = get_or_create_device(db, user, request)
     
-    # Store token in cookies or session
-    redirect_url = redirect if redirect else "/"
-    print(f"DEBUG: Redirecting after login to: {redirect_url}")
+    # Create access token
+    access_token_expires = timedelta(days=30 if remember else 1)
+    token_data = {"sub": user.email}
+    access_token = create_access_token(data=token_data, expires_delta=access_token_expires)
     
-    response = RedirectResponse(url=redirect_url, status_code=status.HTTP_303_SEE_OTHER)
-    response.set_cookie(key="access_token", value=f"Bearer {token}", httponly=True)
+    # Create DB session
+    db_session = DbSession(
+        user_id=user.id,
+        device_id=device.id,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+        token=access_token,
+        is_active=True,
+        expires_at=datetime.utcnow() + access_token_expires
+    )
+    
+    db.add(db_session)
+    db.commit()
+    
+    # Update user's last login
+    user.last_login = datetime.utcnow()
+    db.commit()
+    
+    # Create response with token cookie
+    response = RedirectResponse(
+        url=redirect or "/dashboard",  # Redirect to dashboard or specified URL
+        status_code=status.HTTP_303_SEE_OTHER
+    )
+    
+    # Set token cookie
+    response.set_cookie(
+        key="access_token",
+        value=f"Bearer {access_token}",
+        httponly=True,
+        max_age=30 * 24 * 60 * 60 if remember else 24 * 60 * 60,  # 30 days if remember, otherwise 24 hours
+        path="/"
+    )
     
     return response
 
@@ -281,18 +405,20 @@ async def register_page(request: Request):
 @router.post("/register")
 async def register(
     request: Request,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     email: str = Form(...),
     password: str = Form(...),
     password_confirm: str = Form(...),
     first_name: str = Form(None),
-    last_name: str = Form(None)
+    last_name: str = Form(None),
+    enable_mfa: bool = Form(False)
 ):
-    """Handle the registration form submission"""
+    """Register a new user"""
     # Check if passwords match
     if password != password_confirm:
         return templates.TemplateResponse(
-            "auth/register.html", 
+            "auth/register.html",
             {
                 "request": request,
                 "error": "Passwords do not match",
@@ -302,57 +428,88 @@ async def register(
             }
         )
     
-    # Check if the email is already registered
+    # Check if user already exists
     existing_user = db.query(User).filter(User.email == email).first()
     if existing_user:
         return templates.TemplateResponse(
-            "auth/register.html", 
+            "auth/register.html",
             {
                 "request": request,
-                "error": "Email already registered",
+                "error": "User with this email already exists",
                 "email": email,
                 "first_name": first_name,
                 "last_name": last_name
             }
         )
     
-    # Validate password
-    from app.core.security import validate_password
-    password_validation = validate_password(password)
-    if not password_validation["valid"]:
+    # Create new user
+    try:
+        # Hash password
+        hashed_password = get_password_hash(password)
+        
+        # Create user
+        user = User(
+            email=email,
+            hashed_password=hashed_password,
+            first_name=first_name,
+            last_name=last_name,
+            mfa_enabled=enable_mfa
+        )
+        
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        
+        # If MFA is enabled, send verification email
+        if enable_mfa:
+            # Create session without completing login
+            # Create a temporary session to track the MFA verification
+            session_id = str(uuid.uuid4())
+            
+            # Store session data in Redis or database in a real app
+            # For this example, we'll set a cookie with limited data
+            response = RedirectResponse(
+                url="/auth/mfa/verify",
+                status_code=status.HTTP_303_SEE_OTHER
+            )
+            
+            # Store email in session
+            response.set_cookie(
+                key="mfa_session",
+                value=json.dumps({
+                    "session_id": session_id,
+                    "email": email,
+                    "registration": True  # Flag to indicate this is a new registration
+                }),
+                httponly=True,
+                max_age=900,  # 15 minutes
+                path="/"
+            )
+            
+            # Send verification email
+            send_verification_email(background_tasks, email)
+            
+            return response
+        
+        # If MFA is not enabled, redirect to login page
+        return RedirectResponse(
+            url="/auth/login?registered=true",
+            status_code=status.HTTP_303_SEE_OTHER
+        )
+    
+    except Exception as e:
+        db.rollback()
+        print(f"Error during registration: {str(e)}")
         return templates.TemplateResponse(
-            "auth/register.html", 
+            "auth/register.html",
             {
                 "request": request,
-                "error": password_validation["errors"][0],
+                "error": "An error occurred during registration",
                 "email": email,
                 "first_name": first_name,
                 "last_name": last_name
             }
         )
-    
-    # Get the user role
-    from app.models.role import Role
-    user_role = db.query(Role).filter(Role.name == "user").first()
-    
-    # Create the user
-    hashed_password = get_password_hash(password)
-    user = User(
-        email=email,
-        hashed_password=hashed_password,
-        is_active=True,
-        is_superuser=False,
-        first_name=first_name,
-        last_name=last_name,
-        role_id=user_role.id if user_role else None
-    )
-    
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    
-    # Redirect to login page
-    return RedirectResponse(url="/auth/login?registered=true", status_code=status.HTTP_303_SEE_OTHER)
 
 @router.get("/logout")
 async def logout(request: Request, db: Session = Depends(get_db)):
@@ -475,57 +632,171 @@ async def complete_mfa_setup(
     return RedirectResponse(url="/auth/login?mfa_setup=true", status_code=status.HTTP_303_SEE_OTHER)
 
 @router.get("/mfa/verify", response_class=HTMLResponse)
-async def mfa_verify_page(request: Request, db: Session = Depends(get_db)):
-    """Render the MFA verification page"""
-    # Check if user is authenticated for verification
-    user_id = request.session.get("mfa_user_id")
-    if not user_id:
-        return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
+async def mfa_verify_page(request: Request):
+    """MFA verification page"""
+    # Get MFA session from cookie
+    mfa_session = request.cookies.get("mfa_session")
+    if not mfa_session:
+        return RedirectResponse(
+            url="/auth/login",
+            status_code=status.HTTP_303_SEE_OTHER
+        )
     
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user or not user.mfa_enabled:
-        return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
-    
-    return templates.TemplateResponse("auth/mfa_verify.html", {"request": request})
+    try:
+        session_data = json.loads(mfa_session)
+        user_email = session_data.get("email")
+        session_id = session_data.get("session_id")
+        
+        return templates.TemplateResponse(
+            "auth/mfa_verify.html",
+            {
+                "request": request,
+                "user_email": user_email,
+                "session_id": session_id
+            }
+        )
+    except:
+        # Invalid session data
+        return RedirectResponse(
+            url="/auth/login",
+            status_code=status.HTTP_303_SEE_OTHER
+        )
 
 @router.post("/mfa/verify")
 async def verify_mfa(
     request: Request,
     db: Session = Depends(get_db),
-    code: str = Form(...)
+    verification_code: str = Form(...),
+    email: str = Form(...),
+    session_id: str = Form(...)
 ):
-    """Verify MFA code during login"""
-    # Check if user is authenticated for verification
-    user_id = request.session.get("mfa_user_id")
-    if not user_id:
-        return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
-    
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user or not user.mfa_secret:
-        return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
-    
+    """Verify MFA code"""
     # Verify the code
-    if not verify_totp(user.mfa_secret, code):
+    if not verify_code(email, verification_code):
         return templates.TemplateResponse(
-            "auth/mfa_verify.html", 
+            "auth/mfa_verify.html",
             {
                 "request": request,
-                "error": "Invalid verification code"
+                "error": "Invalid or expired verification code",
+                "user_email": email,
+                "session_id": session_id
             }
         )
     
-    # Create user session
-    token, session = create_session(db, user, request)
+    # Get MFA session from cookie
+    mfa_session = request.cookies.get("mfa_session")
+    if not mfa_session:
+        return RedirectResponse(
+            url="/auth/login",
+            status_code=status.HTTP_303_SEE_OTHER
+        )
     
-    # Clear session data
-    request.session.pop("mfa_user_id", None)
-    request.session.pop("mfa_required", None)
+    try:
+        session_data = json.loads(mfa_session)
+        user_id = session_data.get("user_id")
+        remember = session_data.get("remember", False)
+        redirect_url = session_data.get("redirect")
+        is_registration = session_data.get("registration", False)
+        
+        # For new registrations, just redirect to login
+        if is_registration:
+            response = RedirectResponse(
+                url="/auth/login?registered=true&mfa_setup=true",
+                status_code=status.HTTP_303_SEE_OTHER
+            )
+            # Clear MFA session
+            response.delete_cookie(key="mfa_session", path="/")
+            return response
+        
+        # For login, complete the login process
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            return RedirectResponse(
+                url="/auth/login",
+                status_code=status.HTTP_303_SEE_OTHER
+            )
+        
+        # Create login history entry
+        create_login_history(db, user, True, request)
+        
+        # Create user session
+        device = get_or_create_device(db, user, request)
+        
+        # Create access token
+        access_token_expires = timedelta(days=30 if remember else 1)
+        token_data = {"sub": user.email}
+        access_token = create_access_token(data=token_data, expires_delta=access_token_expires)
+        
+        # Create DB session
+        db_session = DbSession(
+            user_id=user.id,
+            device_id=device.id,
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+            token=access_token,
+            is_active=True,
+            expires_at=datetime.utcnow() + access_token_expires
+        )
+        
+        db.add(db_session)
+        db.commit()
+        
+        # Update user's last login
+        user.last_login = datetime.utcnow()
+        db.commit()
+        
+        # Create response with token cookie
+        response = RedirectResponse(
+            url=redirect_url or "/dashboard",
+            status_code=status.HTTP_303_SEE_OTHER
+        )
+        
+        # Set token cookie
+        response.set_cookie(
+            key="access_token",
+            value=f"Bearer {access_token}",
+            httponly=True,
+            max_age=30 * 24 * 60 * 60 if remember else 24 * 60 * 60,
+            path="/"
+        )
+        
+        # Clear MFA session
+        response.delete_cookie(key="mfa_session", path="/")
+        
+        return response
     
-    # Store token in cookies
-    response = RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
-    response.set_cookie(key="access_token", value=f"Bearer {token}", httponly=True)
-    
-    return response
+    except Exception as e:
+        print(f"Error during MFA verification: {str(e)}")
+        return templates.TemplateResponse(
+            "auth/mfa_verify.html",
+            {
+                "request": request,
+                "error": "An error occurred during verification",
+                "user_email": email,
+                "session_id": session_id
+            }
+        )
+
+@router.post("/mfa/resend")
+async def resend_mfa_code(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    email: str
+):
+    """Resend MFA verification code"""
+    try:
+        # Send verification email
+        send_verification_email(background_tasks, email)
+        
+        return JSONResponse({
+            "success": True,
+            "message": "Verification code resent"
+        })
+    except Exception as e:
+        return JSONResponse({
+            "success": False,
+            "message": str(e)
+        }, status_code=400)
 
 # API token endpoint for OAuth2
 @router.post("/token", response_model=Token)

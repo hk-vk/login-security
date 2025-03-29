@@ -1,37 +1,170 @@
 {% extends "base.html" %}
 
-{% block title %}Verify MFA - Adaptive Login Security System{% endblock %}
+{% block title %}Verify Login - Adaptive Login Security System{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center mt-5">
-    <div class="col-md-6">
-        <div class="card shadow">
-            <div class="card-header bg-primary text-white">
-                <h4 class="mb-0">MFA Verification Required</h4>
-            </div>
-            <div class="card-body">
-                {% if error %}
-                <div class="alert alert-danger">
-                    {{ error }}
-                </div>
-                {% endif %}
+<div class="auth-container">
+    <div class="auth-card">
+        <div class="auth-header">
+            <h2>Two-Factor Authentication</h2>
+            <p>A verification code has been sent to your email</p>
+        </div>
 
-                <div class="alert alert-info mb-4">
-                    <p>For additional security, please enter the verification code from your authenticator app.</p>
-                </div>
-
-                <form method="post" action="/auth/mfa/verify">
-                    <div class="mb-3">
-                        <label for="code" class="form-label">Verification Code</label>
-                        <input type="text" class="form-control" id="code" name="code" required 
-                            placeholder="Enter the 6-digit code from your app" autocomplete="off">
-                    </div>
-                    <div class="d-grid">
-                        <button type="submit" class="btn btn-primary">Verify</button>
-                    </div>
-                </form>
+        {% if error %}
+        <div class="alert alert-error">
+            {{ error }}
+        </div>
+        {% endif %}
+        
+        <div class="mfa-status">
+            <i class="fas fa-envelope-open-text"></i>
+            <div class="mfa-info">
+                <h4>Email Sent</h4>
+                <p>Check your inbox at <strong>{{ user_email }}</strong></p>
             </div>
+        </div>
+
+        <form method="POST" action="/auth/mfa/verify" class="auth-form">
+            <div class="form-group">
+                <label for="verification_code">Verification Code</label>
+                <div class="input-group">
+                    <i class="fas fa-key"></i>
+                    <input type="text" id="verification_code" name="verification_code" required 
+                           placeholder="Enter 6-digit code" maxlength="6" inputmode="numeric" pattern="[0-9]{6}" 
+                           autocomplete="one-time-code" autofocus>
+                </div>
+                <div class="expiry-notice">Code expires in <span id="countdown">15:00</span></div>
+            </div>
+
+            <button type="submit" class="btn-primary">Verify</button>
+            
+            <input type="hidden" name="email" value="{{ user_email }}">
+            <input type="hidden" name="session_id" value="{{ session_id }}">
+        </form>
+
+        <div class="auth-footer">
+            <p>Didn't receive the code? <a href="#" id="resendBtn">Resend code</a></p>
+            <p><a href="/auth/login">Back to login</a></p>
         </div>
     </div>
 </div>
+
+<script>
+// Countdown timer
+let minutes = 15;
+let seconds = 0;
+const countdownEl = document.getElementById('countdown');
+
+const updateCountdown = () => {
+    let displayMinutes = minutes.toString().padStart(2, '0');
+    let displaySeconds = seconds.toString().padStart(2, '0');
+    countdownEl.textContent = `${displayMinutes}:${displaySeconds}`;
+    
+    if (minutes === 0 && seconds === 0) {
+        clearInterval(timer);
+        countdownEl.textContent = 'Expired';
+        countdownEl.classList.add('expired');
+        document.getElementById('resendBtn').classList.add('highlight');
+        return;
+    }
+    
+    if (seconds === 0) {
+        minutes--;
+        seconds = 59;
+    } else {
+        seconds--;
+    }
+}
+
+let timer = setInterval(updateCountdown, 1000);
+
+// Resend code
+document.getElementById('resendBtn').addEventListener('click', async function(e) {
+    e.preventDefault();
+    
+    try {
+        const response = await fetch('/auth/mfa/resend', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                email: '{{ user_email }}'
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Reset timer
+            minutes = 15;
+            seconds = 0;
+            countdownEl.classList.remove('expired');
+            this.classList.remove('highlight');
+            
+            // Show success message
+            alert('Verification code has been resent to your email.');
+            
+            // Restart timer
+            clearInterval(timer);
+            timer = setInterval(updateCountdown, 1000);
+        } else {
+            alert(`Failed to resend code: ${data.message}`);
+        }
+    } catch (error) {
+        alert('An error occurred. Please try again later.');
+        console.error(error);
+    }
+});
+</script>
+
+<style>
+.mfa-status {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background-color: var(--primary-50);
+    border-radius: var(--border-radius);
+}
+
+.mfa-status i {
+    font-size: 2rem;
+    color: var(--primary);
+    margin-right: 1rem;
+}
+
+.mfa-info h4 {
+    margin: 0;
+    font-size: 1rem;
+    color: var(--primary-dark);
+}
+
+.mfa-info p {
+    margin: 0.25rem 0 0;
+    font-size: 0.9rem;
+    color: var(--gray-700);
+}
+
+.expiry-notice {
+    margin-top: 0.5rem;
+    font-size: 0.8rem;
+    color: var(--gray-600);
+    text-align: right;
+}
+
+.expired {
+    color: var(--danger);
+    font-weight: bold;
+}
+
+.highlight {
+    font-weight: bold;
+    color: var(--primary);
+}
+
+.auth-footer {
+    text-align: center;
+}
+</style>
 {% endblock %} 
