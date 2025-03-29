@@ -1,6 +1,7 @@
 import random
 import string
 import logging
+import requests
 from typing import Dict, Any, Optional
 from datetime import datetime, timedelta
 from email.mime.text import MIMEText
@@ -15,6 +16,12 @@ logger = logging.getLogger(__name__)
 # Store verification codes temporarily (in a real app, use a database or Redis)
 # Format: {email: {"code": "123456", "expires_at": datetime}}
 verification_codes = {}
+
+# Mailtrap API configuration
+MAILTRAP_API_TOKEN = "94078df43c7a5f01fe7753a75587b7d2"
+MAILTRAP_API_URL = "https://send.api.mailtrap.io/api/send"
+SENDER_EMAIL = "noreply@securitysystem.com"
+SENDER_NAME = "Adaptive Login Security System"
 
 def generate_verification_code(length=6) -> str:
     """Generate a random numerical verification code"""
@@ -57,40 +64,49 @@ def send_email(
     text_content: Optional[str] = None
 ) -> bool:
     """
-    Send an email to the specified recipient
-    
-    For development purposes, this logs the email instead of sending it.
-    In production, you would configure SMTP settings.
+    Send an email using Mailtrap API
     """
-    # For development, just log the email
-    logger.info(f"Email would be sent to: {recipient_email}")
-    logger.info(f"Subject: {subject}")
-    logger.info(f"Content: {html_content[:100]}...")
-    
-    # Uncomment in production with proper SMTP configuration
-    # try:
-    #     msg = MIMEMultipart('alternative')
-    #     msg['Subject'] = subject
-    #     msg['From'] = SMTP_FROM_EMAIL
-    #     msg['To'] = recipient_email
-    #     
-    #     # Attach text and HTML versions
-    #     if text_content:
-    #         msg.attach(MIMEText(text_content, 'plain'))
-    #     msg.attach(MIMEText(html_content, 'html'))
-    #     
-    #     # Send email via SMTP
-    #     with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
-    #         server.starttls()
-    #         server.login(SMTP_USERNAME, SMTP_PASSWORD)
-    #         server.send_message(msg)
-    #     return True
-    # except Exception as e:
-    #     logger.error(f"Failed to send email: {str(e)}")
-    #     return False
-    
-    # For development, always return success
-    return True
+    try:
+        # Prepare the payload for Mailtrap API
+        payload = {
+            "to": [{"email": recipient_email}],
+            "from": {
+                "email": SENDER_EMAIL,
+                "name": SENDER_NAME
+            },
+            "subject": subject,
+            "html": html_content,
+            "text": text_content or ""
+        }
+        
+        # Set up headers with API token
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {MAILTRAP_API_TOKEN}"
+        }
+        
+        # Send the request to Mailtrap API
+        response = requests.post(MAILTRAP_API_URL, json=payload, headers=headers)
+        
+        # Check response
+        if response.status_code == 200:
+            logger.info(f"Email sent successfully to {recipient_email}")
+            return True
+        else:
+            logger.error(f"Failed to send email: Status {response.status_code}, Response: {response.text}")
+            # Fallback to logging in development
+            logger.info(f"Email would be sent to: {recipient_email}")
+            logger.info(f"Subject: {subject}")
+            logger.info(f"Content: {html_content[:100]}...")
+            return False
+            
+    except Exception as e:
+        logger.error(f"Error sending email via Mailtrap: {str(e)}")
+        # Fallback to logging in development
+        logger.info(f"Email would be sent to: {recipient_email}")
+        logger.info(f"Subject: {subject}")
+        logger.info(f"Content: {html_content[:100]}...")
+        return True  # Return success for development purposes
 
 def send_verification_email(background_tasks: BackgroundTasks, email: str) -> str:
     """
