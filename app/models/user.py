@@ -9,6 +9,7 @@ class User(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True, nullable=False)
+    username = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
     is_active = Column(Boolean, default=True)
     is_superuser = Column(Boolean, default=False)
@@ -20,6 +21,8 @@ class User(Base):
     mfa_enabled = Column(Boolean, default=False)
     mfa_secret = Column(String, nullable=True)
     password_last_changed = Column(DateTime, default=datetime.utcnow)
+    last_login = Column(DateTime, nullable=True)
+    risk_score = Column(Integer, default=0)
     
     # User data
     first_name = Column(String, nullable=True)
@@ -34,4 +37,36 @@ class User(Base):
     # Relationships
     sessions = relationship("Session", back_populates="user", cascade="all, delete-orphan")
     login_history = relationship("LoginHistory", back_populates="user", cascade="all, delete-orphan")
-    devices = relationship("Device", back_populates="user", cascade="all, delete-orphan") 
+    devices = relationship("Device", back_populates="user", cascade="all, delete-orphan")
+    
+    # Security relationships
+    login_attempts = relationship("LoginAttempt", back_populates="user", foreign_keys="[LoginAttempt.user_id]", cascade="all, delete-orphan")
+    security_events = relationship("SecurityEvent", back_populates="user", foreign_keys="[SecurityEvent.user_id]", cascade="all, delete-orphan")
+    suspicious_activities = relationship("SuspiciousActivity", back_populates="user", cascade="all, delete-orphan")
+    login_locations = relationship("LoginLocation", back_populates="user", cascade="all, delete-orphan")
+    
+    # Acknowledged security events
+    acknowledged_events = relationship("SecurityEvent", 
+                                      foreign_keys="[SecurityEvent.acknowledged_by]",
+                                      backref="acknowledged_by_admin")
+    
+    # Risk assessment reviews
+    risk_assessment_reviews = relationship("RiskAssessmentLog", 
+                                          foreign_keys="[RiskAssessmentLog.reviewed_by]",
+                                          backref="reviewed_by_admin")
+    
+    # IP blocks
+    ip_blocks = relationship("BlockedIP", 
+                            foreign_keys="[BlockedIP.blocked_by]", 
+                            backref="blocked_by_admin")
+    
+    @property
+    def full_name(self):
+        """Return the user's full name."""
+        if self.first_name and self.last_name:
+            return f"{self.first_name} {self.last_name}"
+        elif self.first_name:
+            return self.first_name
+        elif self.last_name:
+            return self.last_name
+        return self.username 

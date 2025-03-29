@@ -297,3 +297,451 @@ def assess_time_based_risk(db: Session, user_id: int, login_timestamp: datetime)
     else:
         # User has never logged in during this hour before
         return 50  # Unusual login time, higher risk 
+
+def calculate_overall_risk_score(db: Session, stats: dict, security_metrics: dict):
+    """
+    Calculate the overall risk score based on multiple risk factors.
+    The score is normalized to a scale of 0-100, where:
+    0-30: Low risk
+    31-60: Medium risk
+    61-85: High risk
+    86-100: Critical risk
+    
+    Risk factors include:
+    - Brute force attempts
+    - Failed login patterns
+    - Geographic anomalies
+    - Account takeover attempts
+    - Suspicious IP activities
+    - Rate of password changes
+    - Session anomalies
+    - Data access patterns
+    """
+    factors = {}
+    risk_score = 0
+    total_weight = 0
+    
+    # Brute force risk - weight: 25%
+    brute_force_risk = calculate_brute_force_risk(db, stats, security_metrics)
+    factors['brute_force_risk'] = brute_force_risk
+    risk_score += brute_force_risk * 0.25
+    total_weight += 0.25
+    
+    # Account takeover risk - weight: 20%
+    account_takeover_risk = calculate_account_takeover_risk(db, stats, security_metrics)
+    factors['account_takeover_risk'] = account_takeover_risk
+    risk_score += account_takeover_risk * 0.20
+    total_weight += 0.20
+    
+    # Data breach risk - weight: 20%
+    data_breach_risk = calculate_data_breach_risk(db, stats, security_metrics)
+    factors['data_breach_risk'] = data_breach_risk
+    risk_score += data_breach_risk * 0.20
+    total_weight += 0.20
+    
+    # Session anomaly risk - weight: 15%
+    session_anomaly_risk = calculate_session_anomaly_risk(db, stats, security_metrics)
+    factors['session_anomaly_risk'] = session_anomaly_risk
+    risk_score += session_anomaly_risk * 0.15
+    total_weight += 0.15
+    
+    # Geographic anomaly risk - weight: 10%
+    geo_anomaly_risk = calculate_geo_anomaly_risk(db, stats, security_metrics)
+    factors['geo_anomaly_risk'] = geo_anomaly_risk
+    risk_score += geo_anomaly_risk * 0.10
+    total_weight += 0.10
+    
+    # System health risk - weight: 10%
+    system_health_risk = calculate_system_health_risk(db, stats, security_metrics)
+    factors['system_health_risk'] = system_health_risk
+    risk_score += system_health_risk * 0.10
+    total_weight += 0.10
+    
+    # Normalize score to account for any missing factors
+    if total_weight > 0:
+        normalized_score = round((risk_score / total_weight) * 100)
+    else:
+        normalized_score = 0
+    
+    # Count how many factors were calculated
+    risk_factors_count = sum(1 for factor in factors.values() if factor is not None)
+    
+    # Update security metrics with individual risk factors and overall score
+    security_metrics.update(factors)
+    security_metrics['overall_risk_score'] = normalized_score
+    security_metrics['risk_factors_count'] = risk_factors_count
+    
+    return normalized_score
+
+def calculate_brute_force_risk(db: Session, stats: dict, security_metrics: dict):
+    """
+    Calculate risk score for brute force attacks based on:
+    - Number of failed login attempts
+    - Number of unique IPs with failed attempts
+    - Distribution pattern of failed attempts
+    - Rate of failed attempts over time
+    """
+    try:
+        # Extract needed metrics
+        failed_logins_day = stats.get('failed_logins_day', 0)
+        total_logins_day = stats.get('total_logins_day', 1)  # Avoid division by zero
+        unique_failed_ips = security_metrics.get('unique_failed_ips_day', 0)
+        login_failure_rate = security_metrics.get('login_failure_rate_day', 0)
+        
+        # Count blocked IPs (from security_metrics or get from the database)
+        blocked_ips_count = security_metrics.get('blocked_ips_count', 0)
+        security_metrics['blocked_ips_count'] = blocked_ips_count
+        
+        # Base score calculation
+        if total_logins_day <= 5:  # Very low activity, base risk on absolute numbers
+            base_score = min(100, failed_logins_day * 10)
+        else:
+            # Higher failure rate = higher risk
+            base_score = min(100, login_failure_rate * 1.5)
+        
+        # Adjust for unique IPs (distributed attacks are more concerning)
+        if unique_failed_ips > 0:
+            ip_factor = min(2.0, 1 + (unique_failed_ips / 10))
+            base_score = min(100, base_score * ip_factor)
+        
+        # Reduce score if many IPs are already blocked (threat partially mitigated)
+        if blocked_ips_count > 0:
+            mitigation_factor = max(0.5, 1 - (blocked_ips_count / (unique_failed_ips + blocked_ips_count + 1)) * 0.5)
+            base_score *= mitigation_factor
+        
+        # Final normalization to 0-100 range
+        return round(base_score)
+    except Exception as e:
+        print(f"Error calculating brute force risk: {e}")
+        return 20  # Default moderate-low value in case of calculation error
+
+def calculate_account_takeover_risk(db: Session, stats: dict, security_metrics: dict):
+    """
+    Calculate risk of account takeover attempts based on:
+    - Unusual login locations
+    - Multiple password reset attempts
+    - Failed MFA verifications
+    - Unusual login times
+    - Unusual device changes
+    """
+    try:
+        # Extract needed metrics
+        failed_logins_day = stats.get('failed_logins_day', 0)
+        suspicious_logins_count = security_metrics.get('suspicious_logins_count', 0)
+        failed_mfa_count = security_metrics.get('failed_mfa_attempts', 0)
+        password_reset_attempts = security_metrics.get('password_reset_attempts', 0)
+        unusual_device_logins = security_metrics.get('unusual_device_logins', 0)
+        
+        # Update security metrics if we calculated new values
+        security_metrics['suspicious_logins_count'] = suspicious_logins_count
+        
+        # Base risk score from suspicious activities
+        base_score = 0
+        
+        # Weight suspicious logins heavily
+        if suspicious_logins_count > 0:
+            base_score += min(50, suspicious_logins_count * 10)
+        
+        # Failed MFA is a strong indicator
+        if failed_mfa_count > 0:
+            base_score += min(30, failed_mfa_count * 15)
+        
+        # Password reset attempts
+        if password_reset_attempts > 0:
+            base_score += min(20, password_reset_attempts * 10)
+        
+        # Unusual device logins
+        if unusual_device_logins > 0:
+            base_score += min(30, unusual_device_logins * 15)
+        
+        # Factor in general failed logins (but less weight)
+        base_score += min(20, failed_logins_day * 2)
+        
+        # Cap and normalize the final score
+        return min(100, round(base_score))
+    except Exception as e:
+        print(f"Error calculating account takeover risk: {e}")
+        return 30  # Default moderate value in case of calculation error
+
+def calculate_data_breach_risk(db: Session, stats: dict, security_metrics: dict):
+    """
+    Calculate risk of data breach based on:
+    - Unusual data access patterns
+    - Volume of data accessed
+    - Sensitive data access attempts
+    - Unusual user permissions changes
+    """
+    try:
+        # Extract needed metrics
+        unusual_access_count = security_metrics.get('unusual_access_count', 0)
+        sensitive_data_requests = security_metrics.get('sensitive_data_requests', 0)
+        permission_changes = security_metrics.get('permission_changes', 0)
+        data_export_volume = security_metrics.get('data_export_volume', 0)
+        
+        # Update security metrics
+        security_metrics['unusual_access_count'] = unusual_access_count
+        
+        # Base risk calculation
+        base_score = 0
+        
+        # Unusual access patterns are a major indicator
+        if unusual_access_count > 0:
+            base_score += min(50, unusual_access_count * 10)
+        
+        # Sensitive data requests
+        if sensitive_data_requests > 0:
+            base_score += min(30, sensitive_data_requests * 15)
+        
+        # Permission changes (could indicate privilege escalation)
+        if permission_changes > 0:
+            base_score += min(40, permission_changes * 20)
+        
+        # Data export volume (could indicate exfiltration)
+        if data_export_volume > 0:
+            # Scale based on volume (e.g., in MB)
+            volume_score = min(30, math.log(data_export_volume + 1, 10) * 10)
+            base_score += volume_score
+        
+        # Cap and normalize
+        return min(100, round(base_score))
+    except Exception as e:
+        print(f"Error calculating data breach risk: {e}")
+        return 25  # Default moderate-low value in case of calculation error
+
+def calculate_session_anomaly_risk(db: Session, stats: dict, security_metrics: dict):
+    """
+    Calculate risk based on session anomalies:
+    - Concurrent sessions from different locations
+    - Unusual session durations
+    - Session hijacking attempts
+    - Unusual activity within sessions
+    """
+    try:
+        # Extract needed metrics
+        active_sessions = stats.get('active_sessions', 0)
+        concurrent_session_anomalies = security_metrics.get('concurrent_session_anomalies', 0)
+        session_duration_anomalies = security_metrics.get('session_duration_anomalies', 0)
+        session_hijack_attempts = security_metrics.get('session_hijack_attempts', 0)
+        
+        # Base risk calculation
+        base_score = 0
+        
+        # Concurrent session anomalies
+        if concurrent_session_anomalies > 0:
+            base_score += min(50, concurrent_session_anomalies * 25)
+        
+        # Session duration anomalies
+        if session_duration_anomalies > 0:
+            base_score += min(30, session_duration_anomalies * 15)
+        
+        # Session hijacking attempts (high severity)
+        if session_hijack_attempts > 0:
+            base_score += min(70, session_hijack_attempts * 35)
+        
+        # Factor in total active sessions volume
+        if active_sessions > 50:  # Arbitrary threshold for "high" session count
+            volume_factor = min(1.5, 1 + (active_sessions - 50) / 100)
+            base_score = min(100, base_score * volume_factor)
+        
+        # Cap and normalize
+        return min(100, round(base_score))
+    except Exception as e:
+        print(f"Error calculating session anomaly risk: {e}")
+        return 15  # Default low-moderate value in case of calculation error
+
+def calculate_geo_anomaly_risk(db: Session, stats: dict, security_metrics: dict):
+    """
+    Calculate risk based on geographic anomalies:
+    - Login attempts from unusual countries
+    - Login velocity anomalies (impossible travel)
+    - Geographic distribution of failed attempts
+    """
+    try:
+        # Extract needed metrics
+        geo_anomalies = security_metrics.get('geo_anomalies', 0)
+        impossible_travel_events = security_metrics.get('impossible_travel_events', 0)
+        high_risk_country_logins = security_metrics.get('high_risk_country_logins', 0)
+        
+        # Base risk calculation
+        base_score = 0
+        
+        # General geographic anomalies
+        if geo_anomalies > 0:
+            base_score += min(40, geo_anomalies * 10)
+        
+        # Impossible travel is a strong indicator
+        if impossible_travel_events > 0:
+            base_score += min(60, impossible_travel_events * 30)
+        
+        # High-risk countries
+        if high_risk_country_logins > 0:
+            base_score += min(50, high_risk_country_logins * 25)
+        
+        # Cap and normalize
+        return min(100, round(base_score))
+    except Exception as e:
+        print(f"Error calculating geographic anomaly risk: {e}")
+        return 20  # Default moderate value in case of calculation error
+
+def calculate_system_health_risk(db: Session, stats: dict, security_metrics: dict):
+    """
+    Calculate risk based on system health metrics:
+    - CPU/Memory/Disk utilization (can affect security mechanisms)
+    - Error rates in security services
+    - Log storage capacity
+    - System uptime (very long uptimes could indicate missing security patches)
+    """
+    try:
+        # Extract system health metrics from security_metrics
+        cpu_usage = security_metrics.get('cpu_usage', 0)
+        memory_usage = security_metrics.get('memory_usage', 0)
+        disk_usage = security_metrics.get('disk_usage', 0)
+        system_uptime_days = security_metrics.get('system_uptime_days', 0)
+        error_rate = security_metrics.get('security_service_error_rate', 0)
+        
+        # Base risk calculation
+        base_score = 0
+        
+        # Resource utilization risks
+        if cpu_usage > 80:
+            base_score += 30  # High CPU usage can impact security services
+        elif cpu_usage > 60:
+            base_score += 15
+            
+        if memory_usage > 85:
+            base_score += 25  # High memory usage can cause service failures
+        elif memory_usage > 70:
+            base_score += 15
+            
+        if disk_usage > 90:
+            base_score += 40  # Critical disk usage affects logging and can cause system failure
+        elif disk_usage > 75:
+            base_score += 20
+        
+        # System uptime (high uptime may indicate missing patches)
+        if system_uptime_days > 90:  # 3 months without reboot
+            base_score += 35
+        elif system_uptime_days > 30:  # 1 month without reboot
+            base_score += 15
+        
+        # Error rates in security services
+        if error_rate > 5:  # More than 5% error rate
+            base_score += min(50, error_rate * 5)
+        
+        # Cap and normalize
+        return min(100, round(base_score))
+    except Exception as e:
+        print(f"Error calculating system health risk: {e}")
+        return 10  # Default low value in case of calculation error
+
+def get_detailed_risk_assessment(db: Session, stats: dict, security_metrics: dict):
+    """
+    Generate a detailed risk assessment report with recommendations.
+    This would typically be called after calculate_overall_risk_score.
+    """
+    # First ensure we have calculated all risks
+    if 'overall_risk_score' not in security_metrics:
+        calculate_overall_risk_score(db, stats, security_metrics)
+    
+    overall_score = security_metrics.get('overall_risk_score', 0)
+    
+    # Initialize report
+    report = {
+        "overall_risk_score": overall_score,
+        "risk_category": get_risk_category(overall_score),
+        "timestamp": datetime.now().isoformat(),
+        "risk_factors": [],
+        "recommendations": []
+    }
+    
+    # Process each risk factor
+    factor_details = [
+        {
+            "name": "Brute Force Risk", 
+            "key": "brute_force_risk",
+            "high_rec": "Implement progressive delays and advanced rate limiting.",
+            "med_rec": "Review and strengthen rate limiting policies.",
+            "low_rec": "Continue monitoring login attempt patterns."
+        },
+        {
+            "name": "Account Takeover Risk", 
+            "key": "account_takeover_risk",
+            "high_rec": "Enforce MFA for all users and implement advanced behavioral analytics.",
+            "med_rec": "Encourage MFA adoption and review account activity alerts.",
+            "low_rec": "Monitor unusual login patterns."
+        },
+        {
+            "name": "Data Breach Risk", 
+            "key": "data_breach_risk",
+            "high_rec": "Audit data access patterns and implement data loss prevention.",
+            "med_rec": "Review permission models and sensitive data access controls.",
+            "low_rec": "Continue monitoring data access patterns."
+        },
+        {
+            "name": "Session Anomaly Risk", 
+            "key": "session_anomaly_risk",
+            "high_rec": "Implement advanced session validation and enforce strict timeouts.",
+            "med_rec": "Review session management policies and concurrent session limits.",
+            "low_rec": "Monitor for unusual session activities."
+        },
+        {
+            "name": "Geographic Anomaly Risk", 
+            "key": "geo_anomaly_risk",
+            "high_rec": "Implement country blocking and require additional verification for unusual locations.",
+            "med_rec": "Set alerts for logins from new locations and review travel patterns.",
+            "low_rec": "Monitor geographic login distribution."
+        },
+        {
+            "name": "System Health Risk", 
+            "key": "system_health_risk",
+            "high_rec": "Address resource constraints and schedule system maintenance immediately.",
+            "med_rec": "Review system resource allocation and update schedules.",
+            "low_rec": "Continue monitoring system health metrics."
+        }
+    ]
+    
+    # Generate factor-specific assessments and recommendations
+    for factor in factor_details:
+        score = security_metrics.get(factor["key"], 0)
+        if score is None:
+            continue
+            
+        category = get_risk_category(score)
+        
+        # Select appropriate recommendation based on risk level
+        recommendation = factor["low_rec"]
+        if category == "High" or category == "Critical":
+            recommendation = factor["high_rec"]
+        elif category == "Medium":
+            recommendation = factor["med_rec"]
+        
+        # Add factor details to report
+        report["risk_factors"].append({
+            "name": factor["name"],
+            "score": score,
+            "category": category,
+            "recommendation": recommendation
+        })
+        
+        # Add to overall recommendations if medium risk or higher
+        if category != "Low":
+            report["recommendations"].append(f"{factor['name']}: {recommendation}")
+    
+    # Add general recommendations based on overall score
+    if overall_score > 60:
+        report["recommendations"].append("Consider initiating security incident response procedures.")
+    if overall_score > 40:
+        report["recommendations"].append("Schedule a comprehensive security review.")
+    
+    return report
+
+def get_risk_category(score):
+    """Determine risk category based on score"""
+    if score >= 86:
+        return "Critical"
+    elif score >= 61:
+        return "High"
+    elif score >= 31:
+        return "Medium"
+    else:
+        return "Low" 

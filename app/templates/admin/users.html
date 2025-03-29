@@ -511,17 +511,27 @@
 function editUser(userId) {
     // Fetch user data and populate modal
     fetch(`/admin/users/${userId}`)
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(user => {
             document.getElementById('userId').value = user.id;
             document.getElementById('userEmail').value = user.email;
-            document.getElementById('userFirstName').value = user.first_name;
-            document.getElementById('userLastName').value = user.last_name;
+            document.getElementById('userFirstName').value = user.first_name || '';
+            document.getElementById('userLastName').value = user.last_name || '';
             document.getElementById('userActive').checked = user.is_active;
             document.getElementById('userAdmin').checked = user.is_superuser;
             
             // Show modal
-            new bootstrap.Modal(document.getElementById('editUserModal')).show();
+            var myModal = new bootstrap.Modal(document.getElementById('editUserModal'));
+            myModal.show();
+        })
+        .catch(error => {
+            console.error('Error fetching user:', error);
+            alert('Failed to load user details. Please try again.');
         });
 }
 
@@ -542,13 +552,24 @@ function saveUser() {
         },
         body: JSON.stringify(data)
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(errData => {
+                throw new Error(errData.detail || `HTTP error! Status: ${response.status}`);
+            });
+        }
+        return response.json();
+    })
     .then(result => {
         if (result.success) {
             location.reload();
         } else {
             alert('Failed to update user: ' + result.message);
         }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error updating user: ' + error.message);
     });
 }
 
@@ -557,13 +578,24 @@ function deleteUser(userId) {
         fetch(`/admin/users/${userId}`, {
             method: 'DELETE'
         })
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(errData => {
+                    throw new Error(errData.detail || `HTTP error! Status: ${response.status}`);
+                });
+            }
+            return response.json();
+        })
         .then(result => {
             if (result.success) {
                 location.reload();
             } else {
                 alert('Failed to delete user: ' + result.message);
             }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error deleting user: ' + error.message);
         });
     }
 }
