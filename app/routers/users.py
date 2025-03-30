@@ -4,6 +4,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from typing import List
 from datetime import datetime, timedelta
+import logging
 
 from app.database.database import get_db
 from app.models.user import User
@@ -335,28 +336,38 @@ async def enable_mfa_page(
     current_user: User = Depends(get_current_user)
 ):
     """Initiate email MFA setup by sending a verification code."""
+    logging.info(f"Initiating MFA enable/resend for user {current_user.email} (ID: {current_user.id})")
     # Generate MFA code
     mfa_code = create_mfa_code()
+    logging.info(f"Generated MFA code for user {current_user.id}")
     
     # Store code in session temporarily
     set_mfa_code_in_session(request, current_user.id, mfa_code)
+    logging.info(f"Stored MFA code in session for user {current_user.id}")
     
     # Send email
+    email_sent = False
     try:
-        await send_mfa_code_email(current_user.email, mfa_code)
-        print(f"DEBUG: MFA enablement email sent to {current_user.email}")
-        # Redirect to the verification page
-        return RedirectResponse(url="/users/mfa/verify-enable", status_code=status.HTTP_303_SEE_OTHER)
+        logging.info(f"Attempting to send MFA code email to {current_user.email}")
+        email_sent = await send_mfa_code_email(current_user.email, mfa_code)
+        if email_sent:
+            logging.info(f"MFA enablement/resend email SENT successfully to {current_user.email}")
+            # Redirect to the verification page
+            request.session["flash_success"] = "Verification code sent to your email."
+            return RedirectResponse(url="/users/mfa/verify-enable", status_code=status.HTTP_303_SEE_OTHER)
+        else:
+            logging.error(f"send_mfa_code_email returned False for user {current_user.email}")
+            # Email sending function indicated failure
+            # Redirect back to verify page with error
+            request.session["flash_error"] = "Failed to send MFA code email. Please try again."
+            return RedirectResponse(url="/users/mfa/verify-enable", status_code=status.HTTP_303_SEE_OTHER)
+
     except Exception as e:
-        print(f"ERROR: Failed to send MFA enablement email: {e}")
-        return templates.TemplateResponse(
-            "users/security.html",
-            {
-                "request": request,
-                "user": current_user,
-                "error": "Failed to send MFA verification email. Please try again later."
-            }
-        )
+        logging.error(f"EXCEPTION during MFA enablement email sending for {current_user.email}: {e}", exc_info=True)
+        # Store error message in session flash
+        request.session["flash_error"] = "An unexpected error occurred while sending the MFA code. Please try again later."
+        # Redirect back to the verify page with an error message shown
+        return RedirectResponse(url="/users/mfa/verify-enable", status_code=status.HTTP_303_SEE_OTHER)
 
 @router.get("/mfa/verify-enable", response_class=HTMLResponse)
 async def verify_enable_mfa_page(request: Request, current_user: User = Depends(get_current_user)):
@@ -364,15 +375,23 @@ async def verify_enable_mfa_page(request: Request, current_user: User = Depends(
     if not current_user:
         return RedirectResponse(url="/auth/login")
         
-    # Check if the code was sent (presence in session is a good indicator)
+    # Check if the code was sent (presence in session is a good indicator, though not foolproof)
     if not request.session.get(f"mfa_code_{current_user.id}"):
-        return RedirectResponse(url="/users/security", status_code=status.HTTP_303_SEE_OTHER)
+        logging.warning(f"Accessed verify page for user {current_user.id} but no code found in session.")
+        # Maybe don't redirect here, allow user to see page and potentially resend?
+        # return RedirectResponse(url="/users/security", status_code=status.HTTP_303_SEE_OTHER)
+    
+    # Get flash messages
+    error_message = request.session.pop("flash_error", None)
+    success_message = request.session.pop("flash_success", None)
         
     return templates.TemplateResponse(
         "users/verify_mfa_enable.html", 
         {
             "request": request,
-            "email": current_user.email # Mask part of the email if desired
+            "email": current_user.email, # Mask part of the email if desired
+            "error": error_message,
+            "success": success_message
         }
     )
 
