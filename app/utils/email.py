@@ -21,7 +21,8 @@ verification_codes = {}
 # Mailtrap Configuration
 # IMPORTANT: Use your actual Mailtrap *Sending* API token here.
 # The token you provided (940...) might be a Sandbox token.
-MAILTRAP_API_TOKEN = "94078df43c7a5f01fe7753a75587b7d2" # Directly using the provided token
+# MAILTRAP_API_TOKEN = "94078df43c7a5f01fe7753a75587b7d2" # Old token
+MAILTRAP_API_TOKEN = "38069ceb37f64b247b000bc121897652" # Hardcoded new token (for testing ONLY)
 SENDER_EMAIL = os.getenv("MAILTRAP_SENDER_EMAIL", "noreply@securitysystem.com")
 SENDER_NAME = os.getenv("MAILTRAP_SENDER_NAME", "Adaptive Login Security System")
 
