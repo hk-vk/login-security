@@ -1,15 +1,18 @@
 from sqlalchemy import Boolean, Column, Integer, String, ForeignKey, DateTime, Text, Float, Enum
 from sqlalchemy.orm import relationship
-from sqlalchemy.dialects.postgresql import UUID
 import uuid
 from datetime import datetime
 
 from app.database.database import Base
 
+def generate_uuid():
+    """Generate a string UUID."""
+    return str(uuid.uuid4())
+
 class SecurityEvent(Base):
     __tablename__ = "security_events"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(String(36), primary_key=True, default=generate_uuid)
     event_type = Column(String, nullable=False)
     severity = Column(String, nullable=False)  # critical, high, medium, low
     description = Column(Text, nullable=False)
@@ -30,7 +33,7 @@ class SecurityEvent(Base):
 class LoginAttempt(Base):
     __tablename__ = "login_attempts"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(String(36), primary_key=True, default=generate_uuid)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     username = Column(String, nullable=True)  # Store for failed attempts where user might not exist
     ip_address = Column(String, nullable=False)
@@ -50,7 +53,7 @@ class LoginAttempt(Base):
 class RiskAssessmentLog(Base):
     __tablename__ = "risk_assessment_logs"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(String(36), primary_key=True, default=generate_uuid)
     timestamp = Column(DateTime, default=datetime.utcnow)
     overall_risk_score = Column(Integer, nullable=False)
     brute_force_risk = Column(Integer, nullable=True)
@@ -74,7 +77,7 @@ class RiskAssessmentLog(Base):
 class BlockedIP(Base):
     __tablename__ = "blocked_ips"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(String(36), primary_key=True, default=generate_uuid)
     ip_address = Column(String, nullable=False, unique=True)
     reason = Column(String, nullable=False)
     blocked_at = Column(DateTime, default=datetime.utcnow)
@@ -88,7 +91,7 @@ class BlockedIP(Base):
 class SuspiciousActivity(Base):
     __tablename__ = "suspicious_activities"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(String(36), primary_key=True, default=generate_uuid)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     ip_address = Column(String, nullable=True)
     activity_type = Column(String, nullable=False)
@@ -105,7 +108,7 @@ class SuspiciousActivity(Base):
 class LoginLocation(Base):
     __tablename__ = "login_locations"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(String(36), primary_key=True, default=generate_uuid)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     ip_address = Column(String, nullable=False)
     country = Column(String, nullable=True)
