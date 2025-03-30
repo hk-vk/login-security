@@ -23,12 +23,11 @@ BREVO_SMTP_LOGIN = "89329e001@smtp-brevo.com"
 BREVO_SMTP_PASSWORD = "4XdVQTJzayhBD8qn"
 
 # --- Sender Configuration --- 
-# Ensure this email address is authorized to send via your Brevo account.
-SENDER_EMAIL = os.getenv("SENDER_EMAIL", "noreply@yourdomain.com") # Suggest changing this default or using env var
+# Using the specific sender email provided by the user.
+# Ensure this email address is validated as a sender in your Brevo account.
+SENDER_EMAIL = "harikrishnanvadakkumkarayil@gmail.com" # Hardcoded sender
+# SENDER_EMAIL = os.getenv("SENDER_EMAIL", "noreply@yourdomain.com") # Previous env var logic
 SENDER_NAME = os.getenv("SENDER_NAME", "Adaptive Login Security System")
-
-if SENDER_EMAIL == "noreply@yourdomain.com":
-    logger.warning("SENDER_EMAIL is using default 'noreply@yourdomain.com'. Ensure this is configured correctly.")
 
 def generate_verification_code(length=6) -> str:
     """Generate a random numerical verification code"""
