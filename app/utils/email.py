@@ -33,7 +33,7 @@ if not MAILTRAP_API_TOKEN:
     logger.error("MAILTRAP_API_TOKEN is not set. Email sending will be disabled.")
 else:
     # Always try to initialize if a token is present
-    logger.info(f"Initializing MailtrapClient with token: {...MAILTRAP_API_TOKEN[-4:]}") # Log last 4 chars for confirmation
+    logger.info(f"Initializing MailtrapClient with token ending in: {MAILTRAP_API_TOKEN[-4:]}")
     try:
         mailtrap_client = MailtrapClient(token=MAILTRAP_API_TOKEN)
         # Optionally add a check here if the SDK provides one, e.g., client.check_connection()
