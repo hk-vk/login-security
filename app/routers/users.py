@@ -46,6 +46,18 @@ async def user_dashboard(request: Request, current_user: User = Depends(get_curr
         }
     )
 
+# Security settings
+@router.get("/security", response_class=HTMLResponse)
+async def security_settings(request: Request, current_user: User = Depends(get_current_user)):
+    """Display the security settings page"""
+    return templates.TemplateResponse(
+        "users/security.html", 
+        {
+            "request": request,
+            "user": current_user
+        }
+    )
+
 # User profile
 @router.get("/profile", response_class=HTMLResponse)
 async def user_profile(request: Request, current_user: User = Depends(get_current_user)):

@@ -1,0 +1,275 @@
+{% extends "base.html" %}
+
+{% block title %}Security Settings - Adaptive Login Security System{% endblock %}
+
+{% block content %}
+<div class="security-container">
+    <div class="security-card">
+        <div class="security-header">
+            <h1>Security Settings</h1>
+            <p>Manage your account security</p>
+        </div>
+        
+        <div class="security-content">
+            {% if error %}
+            <div class="alert alert-danger">
+                {{ error }}
+            </div>
+            {% endif %}
+            
+            {% if success %}
+            <div class="alert alert-success">
+                {{ success }}
+            </div>
+            {% endif %}
+            
+            <!-- Password Section -->
+            <div class="security-section">
+                <h2><i class="fas fa-key"></i> Password</h2>
+                <p>Your password was last changed: {{ user.password_last_changed.strftime('%Y-%m-%d %H:%M:%S') if user.password_last_changed else 'Never' }}</p>
+                <div class="button-group">
+                    <a href="/users/change-password" class="btn btn-primary">
+                        <i class="fas fa-lock"></i> Change Password
+                    </a>
+                </div>
+            </div>
+            
+            <!-- MFA Section -->
+            <div class="security-section">
+                <h2><i class="fas fa-shield-alt"></i> Multi-Factor Authentication</h2>
+                <p>Current status: {% if user.mfa_enabled %}<span class="badge success">Enabled</span>{% else %}<span class="badge warning">Disabled</span>{% endif %}</p>
+                
+                <div class="button-group">
+                    {% if not user.mfa_enabled %}
+                    <a href="/users/mfa/enable" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Enable MFA
+                    </a>
+                    {% else %}
+                    <form method="POST" action="/users/mfa/disable" class="mfa-form">
+                        <div class="form-group">
+                            <label for="password">Enter your password to disable MFA:</label>
+                            <div class="password-input-group">
+                                <input type="password" id="password" name="password" required class="form-control">
+                                <button type="submit" class="btn btn-danger">
+                                    <i class="fas fa-times"></i> Disable MFA
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Active Sessions -->
+            <div class="security-section">
+                <h2><i class="fas fa-desktop"></i> Active Sessions</h2>
+                <p>Manage your active login sessions across devices</p>
+                <div class="button-group">
+                    <a href="/users/sessions" class="btn btn-secondary">
+                        <i class="fas fa-list"></i> View Active Sessions
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Back to Dashboard -->
+            <div class="button-group mt-4">
+                <a href="/users/dashboard" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Back to Dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .security-container {
+        max-width: 800px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+    }
+    
+    .security-card {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+    }
+    
+    .security-header {
+        background: linear-gradient(to right, #4f46e5, #6366f1);
+        color: white;
+        padding: 2rem;
+    }
+    
+    .security-header h1 {
+        margin: 0;
+        font-size: 1.8rem;
+    }
+    
+    .security-header p {
+        margin: 0.5rem 0 0;
+        opacity: 0.9;
+    }
+    
+    .security-content {
+        padding: 2rem;
+    }
+    
+    .security-section {
+        padding: 1.5rem;
+        background: #f8fafc;
+        border-radius: 6px;
+        margin-bottom: 1.5rem;
+        border: 1px solid #e2e8f0;
+    }
+    
+    .security-section h2 {
+        margin: 0 0 1rem;
+        color: #1f2937;
+        font-size: 1.25rem;
+        display: flex;
+        align-items: center;
+    }
+    
+    .security-section h2 i {
+        margin-right: 0.5rem;
+        color: #4f46e5;
+    }
+    
+    .security-section p {
+        margin: 0 0 1rem;
+        color: #4b5563;
+    }
+    
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+    
+    .form-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+        color: #1f2937;
+    }
+    
+    .password-input-group {
+        display: flex;
+        gap: 1rem;
+    }
+    
+    .form-control {
+        flex: 1;
+        padding: 0.75rem;
+        border: 1px solid #e5e7eb;
+        border-radius: 4px;
+        font-size: 1rem;
+    }
+    
+    .button-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+    
+    .mt-4 {
+        margin-top: 2rem;
+    }
+    
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.75rem 1.5rem;
+        border-radius: 4px;
+        font-weight: 500;
+        text-decoration: none;
+        transition: all 0.2s;
+    }
+    
+    .btn i {
+        margin-right: 0.5rem;
+    }
+    
+    .btn-primary {
+        background: #4f46e5;
+        color: white;
+        border: none;
+    }
+    
+    .btn-primary:hover {
+        background: #4338ca;
+    }
+    
+    .btn-secondary {
+        background: #f1f5f9;
+        color: #334155;
+        border: 1px solid #cbd5e1;
+    }
+    
+    .btn-secondary:hover {
+        background: #e2e8f0;
+    }
+    
+    .btn-danger {
+        background: #ef4444;
+        color: white;
+        border: none;
+    }
+    
+    .btn-danger:hover {
+        background: #dc2626;
+    }
+    
+    .badge {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    .badge.success {
+        background: #10b981;
+        color: white;
+    }
+    
+    .badge.warning {
+        background: #f59e0b;
+        color: white;
+    }
+    
+    .alert {
+        padding: 1rem;
+        border-radius: 4px;
+        margin-bottom: 1rem;
+    }
+    
+    .alert-danger {
+        background: #fee2e2;
+        border: 1px solid #fecaca;
+        color: #991b1b;
+    }
+    
+    .alert-success {
+        background: #dcfce7;
+        border: 1px solid #bbf7d0;
+        color: #166534;
+    }
+    
+    @media (max-width: 640px) {
+        .password-input-group {
+            flex-direction: column;
+        }
+        
+        .button-group {
+            flex-direction: column;
+        }
+        
+        .btn {
+            width: 100%;
+            justify-content: center;
+        }
+    }
+</style>
+{% endblock %} 
