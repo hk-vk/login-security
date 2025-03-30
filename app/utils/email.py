@@ -1,42 +1,34 @@
 import random
 import string
 import logging
-# import requests # No longer needed for sending
 from typing import Dict, Any, Optional
 from datetime import datetime, timedelta
-# from email.mime.text import MIMEText # No longer needed
-# from email.mime.multipart import MIMEMultipart # No longer needed
-# import smtplib # No longer needed
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+import smtplib # Use standard SMTP library
 import os
 from fastapi import BackgroundTasks
-from mailtrap import Mail, Address, MailtrapClient # Import Mailtrap SDK components
 
 # Setup logging
 logger = logging.getLogger(__name__)
 
-# Store verification codes temporarily (in a real app, use a database or Redis)
-# Format: {email: {"code": "123456", "expires_at": datetime}}
+# Store verification codes temporarily
 verification_codes = {}
 
-# --- Mailtrap Configuration --- 
-# Using the specific token and sender from the user's example.
-# WARNING: Hardcoding tokens is insecure. Use environment variables in production.
-MAILTRAP_TOKEN = "38069ceb37f64b247b000bc121897652" # Hardcoded token from user example
-SENDER_EMAIL = "hello@demomailtrap.co" # Hardcoded sender email from user example
-SENDER_NAME = "Mailtrap Test" # Corrected sender name from user example
+# --- Brevo SMTP Configuration --- 
+# WARNING: Hardcoding credentials is insecure. Use environment variables.
+BREVO_SMTP_HOST = "smtp-relay.brevo.com"
+BREVO_SMTP_PORT = 587
+BREVO_SMTP_LOGIN = "89329e001@smtp-brevo.com"
+BREVO_SMTP_PASSWORD = "4XdVQTJzayhBD8qn"
 
-# --- Initialize Mailtrap Client --- 
-mailtrap_client = None
-try:
-    if MAILTRAP_TOKEN:
-        logger.info(f"Initializing MailtrapClient with token ending in: {MAILTRAP_TOKEN[-4:]}")
-        mailtrap_client = MailtrapClient(token=MAILTRAP_TOKEN)
-    else:
-        # This case should not happen now with hardcoded token, but kept for safety
-        logger.error("MAILTRAP_TOKEN is missing. Email sending disabled.") 
-except Exception as e:
-    logger.error(f"Failed to initialize MailtrapClient: {e}. Email sending disabled.")
-    mailtrap_client = None # Ensure client is None if init fails
+# --- Sender Configuration --- 
+# Ensure this email address is authorized to send via your Brevo account.
+SENDER_EMAIL = os.getenv("SENDER_EMAIL", "noreply@yourdomain.com") # Suggest changing this default or using env var
+SENDER_NAME = os.getenv("SENDER_NAME", "Adaptive Login Security System")
+
+if SENDER_EMAIL == "noreply@yourdomain.com":
+    logger.warning("SENDER_EMAIL is using default 'noreply@yourdomain.com'. Ensure this is configured correctly.")
 
 def generate_verification_code(length=6) -> str:
     """Generate a random numerical verification code"""
@@ -59,7 +51,6 @@ def verify_code(email: str, code: str) -> bool:
     stored_data = verification_codes[email]
     if stored_data["expires_at"] < datetime.utcnow():
         logger.warning(f"Verification code for {email} has expired")
-        # Clean up expired code
         del verification_codes[email]
         return False
     
@@ -67,7 +58,6 @@ def verify_code(email: str, code: str) -> bool:
         logger.warning(f"Invalid verification code for {email}")
         return False
     
-    # Code is valid - clean up after successful verification
     del verification_codes[email]
     logger.info(f"Verification code for {email} validated successfully")
     return True
@@ -79,44 +69,44 @@ def send_email(
     text_content: Optional[str] = None
 ) -> bool:
     """
-    Send an email using the Mailtrap SDK, following documentation examples.
+    Send an email using Brevo SMTP.
     """
-    if not mailtrap_client:
-        logger.error("Mailtrap client is not initialized or failed to initialize. Cannot send email.")
-        # Log essential info for debugging when client is not available
-        logger.info(f"[Mailtrap Disabled] Would send to: {recipient_email}, Subject: {subject}")
-        return False # Indicate failure clearly when client isn't ready
-        
-    logger.info(f"Attempting to send email via Mailtrap SDK to {recipient_email}")
+    if not all([BREVO_SMTP_HOST, BREVO_SMTP_PORT, BREVO_SMTP_LOGIN, BREVO_SMTP_PASSWORD, SENDER_EMAIL]):
+        logger.error("Brevo SMTP configuration is incomplete. Cannot send email.")
+        return False
+
+    logger.info(f"Attempting to send email via Brevo SMTP to {recipient_email}")
     
-    # Create Mail object as per documentation
-    mail = Mail(
-        sender=Address(email=SENDER_EMAIL, name=SENDER_NAME),
-        to=[Address(email=recipient_email)],
-        subject=subject,
-        text=text_content or "Please enable HTML to view this email.", # Provide default text
-        html=html_content
-        # category="Your Category" # Optional: Add category if needed
-        # attachments=[] # Optional: Add attachments if needed
-        # headers={} # Optional: Add custom headers if needed
-    )
+    # Create the email message
+    msg = MIMEMultipart('alternative')
+    msg['Subject'] = subject
+    msg['From'] = f"{SENDER_NAME} <{SENDER_EMAIL}>"
+    msg['To'] = recipient_email
+    
+    # Attach parts
+    if text_content:
+        msg.attach(MIMEText(text_content, 'plain'))
+    msg.attach(MIMEText(html_content, 'html'))
 
     try:
-        # Send using the initialized client
-        response = mailtrap_client.send(mail)
-        
-        # Check response - Assuming success if no exception. 
-        # The SDK might offer better ways to check success (e.g., response properties)
-        # Logging the response might be helpful during debugging.
-        logger.info(f"Mailtrap SDK send successful for {recipient_email}. Response: {response}")
+        # Connect to Brevo SMTP server
+        with smtplib.SMTP(BREVO_SMTP_HOST, BREVO_SMTP_PORT) as server:
+            server.ehlo() # Greet server
+            server.starttls() # Enable encryption
+            server.ehlo() # Greet again after TLS
+            logger.info(f"Logging into Brevo SMTP with user: {BREVO_SMTP_LOGIN}")
+            server.login(BREVO_SMTP_LOGIN, BREVO_SMTP_PASSWORD)
+            logger.info("SMTP login successful.")
+            server.send_message(msg)
+            logger.info(f"Email sent successfully to {recipient_email} via Brevo SMTP.")
         return True
 
+    except smtplib.SMTPAuthenticationError as auth_err:
+        logger.error(f"Brevo SMTP Authentication Error: {auth_err}. Check credentials.")
+        return False
     except Exception as e:
-        # Log the specific error from the SDK
-        logger.error(f"Error sending email via Mailtrap SDK: {str(e)}") 
-        # Log context for debugging
-        logger.info(f"[SDK Failure] Failed sending to: {recipient_email}, Subject: {subject}")
-        return False # Indicate failure
+        logger.error(f"Error sending email via Brevo SMTP: {str(e)}", exc_info=True)
+        return False
 
 def send_verification_email(background_tasks: BackgroundTasks, email: str) -> str:
     """
@@ -155,7 +145,7 @@ async def send_mfa_code_email(recipient_email: str, code: str) -> bool:
     """
     text_content = f"Your MFA verification code is: {code}. It expires in 5 minutes."
     
-    # Use the refactored send_email function
+    # Use the refactored send_email function (now using Brevo)
     return send_email(
         recipient_email=recipient_email,
         subject=subject,
