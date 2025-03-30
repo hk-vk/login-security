@@ -21,17 +21,25 @@ verification_codes = {}
 # Mailtrap Configuration
 # IMPORTANT: Use your actual Mailtrap *Sending* API token here.
 # The token you provided (940...) might be a Sandbox token.
-MAILTRAP_API_TOKEN = os.getenv("MAILTRAP_SENDING_TOKEN", "94078df43c7a5f01fe7753a75587b7d2") # Use env var or default
+MAILTRAP_API_TOKEN = "94078df43c7a5f01fe7753a75587b7d2" # Directly using the provided token
 SENDER_EMAIL = os.getenv("MAILTRAP_SENDER_EMAIL", "noreply@securitysystem.com")
 SENDER_NAME = os.getenv("MAILTRAP_SENDER_NAME", "Adaptive Login Security System")
 
 # Initialize Mailtrap Client
 # Check if the token is set, otherwise log a warning.
-if not MAILTRAP_API_TOKEN or MAILTRAP_API_TOKEN == "94078df43c7a5f01fe7753a75587b7d2":
-    logger.warning("MAILTRAP_SENDING_TOKEN is not set or using default. Email sending might fail.")
-    mailtrap_client = None # Initialize as None if token is missing/default
+# MAILTRAP_API_TOKEN = os.getenv("MAILTRAP_SENDING_TOKEN", "94078df43c7a5f01fe7753a75587b7d2") # Use env var or default
+mailtrap_client = None # Initialize as None first
+if not MAILTRAP_API_TOKEN:
+    logger.error("MAILTRAP_API_TOKEN is not set. Email sending will be disabled.")
 else:
-    mailtrap_client = MailtrapClient(token=MAILTRAP_API_TOKEN)
+    # Always try to initialize if a token is present
+    logger.info(f"Initializing MailtrapClient with token: {...MAILTRAP_API_TOKEN[-4:]}") # Log last 4 chars for confirmation
+    try:
+        mailtrap_client = MailtrapClient(token=MAILTRAP_API_TOKEN)
+        # Optionally add a check here if the SDK provides one, e.g., client.check_connection()
+    except Exception as e:
+        logger.error(f"Failed to initialize MailtrapClient: {e}. Email sending will be disabled.")
+        mailtrap_client = None # Ensure it's None if initialization fails
 
 def generate_verification_code(length=6) -> str:
     """Generate a random numerical verification code"""
