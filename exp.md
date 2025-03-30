@@ -2154,8 +2154,10 @@ The Adaptive Login Security System is a sophisticated web application implementi
 
 ## 7. Conclusion & Future Directions
 
-The Adaptive Login Security System demonstrates a sophisticated approach to balancing robust security with user experience through dynamic, risk-based authentication. By analyzing multiple factors in real-time and applying appropriate security measures, the system provides strong protection against various attacks while minimizing friction for legitimate users.
-
+Error during registration: (sqlite3.IntegrityError) NOT NULL constraint failed: users.username
+[SQL: INSERT INTO users (email, username, hashed_password, is_active, is_superuser, failed_login_attempts, last_failed_login, account_locked_until, mfa_enabled, mfa_secret, password_last_changed, last_login, risk_score, first_name, last_name, created_at, updated_at, role_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)]
+[parameters: ('vkharikrishnan45@gmail.com', None, '$2b$12$j4jOeig6rC0IbBPedFkOxuzeY3RSIlliY5Hh5VKcxt6gRRtNychrK', 1, 0, 0, None, None, 0, None, '2025-03-30 14:02:24.344590', None, 0, 'savi', 'savi', '2025-03-30 14:02:24.344590', '2025-03-30 14:02:24.344590', None)]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
 The technical implementation leverages modern tools and best practices:
 - FastAPI and SQLAlchemy provide a high-performance, type-safe backend framework
 - Cryptographic libraries ensure secure password storage and token handling
