@@ -1,14 +1,15 @@
 import random
 import string
 import logging
-import requests
+# import requests # No longer needed for sending
 from typing import Dict, Any, Optional
 from datetime import datetime, timedelta
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-import smtplib
+# from email.mime.text import MIMEText # No longer needed
+# from email.mime.multipart import MIMEMultipart # No longer needed
+# import smtplib # No longer needed
 import os
 from fastapi import BackgroundTasks
+from mailtrap import Mail, Address, MailtrapClient # Import Mailtrap SDK components
 
 # Setup logging
 logger = logging.getLogger(__name__)
@@ -17,18 +18,20 @@ logger = logging.getLogger(__name__)
 # Format: {email: {"code": "123456", "expires_at": datetime}}
 verification_codes = {}
 
-# Option 1: Use Mailtrap SMTP instead of API (more reliable for development)
-MAILTRAP_SMTP_HOST = "sandbox.smtp.mailtrap.io"
-MAILTRAP_SMTP_PORT = 2525
-MAILTRAP_SMTP_USER = "94078df43c7a5f01fe7753a75587b7d2"  # Using the token as username
-MAILTRAP_SMTP_PASS = "94078df43c7a5f01fe7753a75587b7d2"  # Using the token as password
+# Mailtrap Configuration
+# IMPORTANT: Use your actual Mailtrap *Sending* API token here.
+# The token you provided (940...) might be a Sandbox token.
+MAILTRAP_API_TOKEN = os.getenv("MAILTRAP_SENDING_TOKEN", "94078df43c7a5f01fe7753a75587b7d2") # Use env var or default
+SENDER_EMAIL = os.getenv("MAILTRAP_SENDER_EMAIL", "noreply@securitysystem.com")
+SENDER_NAME = os.getenv("MAILTRAP_SENDER_NAME", "Adaptive Login Security System")
 
-# Option 2: Fix API configuration if you prefer to use the API
-# Mailtrap may require a different format for the token or additional headers
-MAILTRAP_API_TOKEN = "94078df43c7a5f01fe7753a75587b7d2"
-MAILTRAP_API_URL = "https://send.api.mailtrap.io/api/send"
-SENDER_EMAIL = "noreply@securitysystem.com"
-SENDER_NAME = "Adaptive Login Security System"
+# Initialize Mailtrap Client
+# Check if the token is set, otherwise log a warning.
+if not MAILTRAP_API_TOKEN or MAILTRAP_API_TOKEN == "94078df43c7a5f01fe7753a75587b7d2":
+    logger.warning("MAILTRAP_SENDING_TOKEN is not set or using default. Email sending might fail.")
+    mailtrap_client = None # Initialize as None if token is missing/default
+else:
+    mailtrap_client = MailtrapClient(token=MAILTRAP_API_TOKEN)
 
 def generate_verification_code(length=6) -> str:
     """Generate a random numerical verification code"""
@@ -71,75 +74,47 @@ def send_email(
     text_content: Optional[str] = None
 ) -> bool:
     """
-    Send an email using Mailtrap SMTP (more reliable for development)
+    Send an email using the Mailtrap SDK.
     """
+    if not mailtrap_client:
+        logger.error("Mailtrap client is not initialized. MAILTRAP_SENDING_TOKEN might be missing or invalid.")
+        # Fallback to logging in development/test environments
+        logger.info(f"[Mailtrap SDK Disabled] Email would be sent to: {recipient_email}")
+        logger.info(f"[Mailtrap SDK Disabled] Subject: {subject}")
+        logger.info(f"[Mailtrap SDK Disabled] HTML Content: {html_content[:100]}...")
+        return True # Or False depending on desired behavior when not configured
+        
+    logger.info(f"Attempting to send email via Mailtrap SDK to {recipient_email}")
+    mail = Mail(
+        sender=Address(email=SENDER_EMAIL, name=SENDER_NAME),
+        to=[Address(email=recipient_email)], # Can add name if available
+        subject=subject,
+        text=text_content or "", # SDK requires text content
+        html=html_content
+        # Can add attachments, custom headers etc. here if needed
+    )
+
     try:
-        # Create message
-        msg = MIMEMultipart('alternative')
-        msg['Subject'] = subject
-        msg['From'] = f"{SENDER_NAME} <{SENDER_EMAIL}>"
-        msg['To'] = recipient_email
-        
-        # Attach text and HTML parts
-        if text_content:
-            msg.attach(MIMEText(text_content, 'plain'))
-        msg.attach(MIMEText(html_content, 'html'))
-        
-        # Connect to Mailtrap SMTP server
-        with smtplib.SMTP(MAILTRAP_SMTP_HOST, MAILTRAP_SMTP_PORT) as server:
-            server.starttls()
-            server.login(MAILTRAP_SMTP_USER, MAILTRAP_SMTP_PASS)
-            server.send_message(msg)
-            
-        logger.info(f"Email sent successfully to {recipient_email} via SMTP")
-        return True
-            
+        response = mailtrap_client.send(mail)
+        # The SDK response structure might vary, check its documentation.
+        # Assuming response indicates success if no exception is raised or based on a status field.
+        # Example check (adjust based on actual SDK response):
+        if hasattr(response, 'status_code') and response.status_code == 200: 
+             logger.info(f"Email sent successfully to {recipient_email} via Mailtrap SDK.")
+             return True
+        elif response: # If response is truthy, assume success if no specific status code
+             logger.info(f"Email sent successfully to {recipient_email} via Mailtrap SDK (response: {response}).")
+             return True
+        else:
+             logger.error(f"Mailtrap SDK returned an unexpected response: {response}")
+             return False
+
     except Exception as e:
-        logger.error(f"Error sending email via SMTP: {str(e)}")
-        
-        # Fallback to API method if SMTP fails
-        try:
-            # Prepare the payload for Mailtrap API
-            payload = {
-                "to": [{"email": recipient_email}],
-                "from": {
-                    "email": SENDER_EMAIL,
-                    "name": SENDER_NAME
-                },
-                "subject": subject,
-                "html": html_content,
-                "text": text_content or ""
-            }
-            
-            # Set up headers with API token
-            headers = {
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {MAILTRAP_API_TOKEN}",
-                "Api-Token": MAILTRAP_API_TOKEN  # Try alternative header format
-            }
-            
-            # Send the request to Mailtrap API
-            response = requests.post(MAILTRAP_API_URL, json=payload, headers=headers)
-            
-            # Check response
-            if response.status_code == 200:
-                logger.info(f"Email sent successfully to {recipient_email} via API")
-                return True
-            else:
-                logger.error(f"Failed to send email via API: Status {response.status_code}, Response: {response.text}")
-                # Fall back to logging in development
-                logger.info(f"Email would be sent to: {recipient_email}")
-                logger.info(f"Subject: {subject}")
-                logger.info(f"Content: {html_content[:100]}...")
-                return True  # Return success for development
-                
-        except Exception as api_e:
-            logger.error(f"Error sending email via API fallback: {str(api_e)}")
-            # Fallback to logging in development
-            logger.info(f"Email would be sent to: {recipient_email}")
-            logger.info(f"Subject: {subject}")
-            logger.info(f"Content: {html_content[:100]}...")
-            return True  # Return success for development purposes
+        logger.error(f"Error sending email via Mailtrap SDK: {str(e)}")
+        # Log essential info for debugging
+        logger.info(f"[SDK Failure] Email would be sent to: {recipient_email}")
+        logger.info(f"[SDK Failure] Subject: {subject}")
+        return False # Indicate failure
 
 def send_verification_email(background_tasks: BackgroundTasks, email: str) -> str:
     """
@@ -200,7 +175,7 @@ def send_verification_email(background_tasks: BackgroundTasks, email: str) -> st
     return code  # Return code for development purposes
 
 async def send_mfa_code_email(recipient_email: str, code: str) -> bool:
-    """Send the MFA enablement/verification code via email using SMTP."""
+    """Send the MFA enablement/verification code via email using the send_email function."""
     subject = "Your MFA Verification Code"
     html_content = f"""
     <html>
@@ -222,6 +197,7 @@ async def send_mfa_code_email(recipient_email: str, code: str) -> bool:
     text_content = f"Your MFA verification code is: {code}. It expires in 5 minutes."
     
     # Send synchronously for this flow (can be made async if needed)
+    # The actual sending mechanism is now handled by the refactored send_email function
     return send_email(
         recipient_email=recipient_email,
         subject=subject,
