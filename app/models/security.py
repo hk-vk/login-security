@@ -28,7 +28,7 @@ class SecurityEvent(Base):
     
     # Relationships
     user = relationship("User", foreign_keys=[user_id])
-    acknowledged_by_user = relationship("User", foreign_keys=[acknowledged_by])
+    acknowledged_by_user = relationship("User", foreign_keys=[acknowledged_by], back_populates="acknowledged_events")
 
 class LoginAttempt(Base):
     __tablename__ = "login_attempts"
@@ -72,7 +72,7 @@ class RiskAssessmentLog(Base):
     reviewed_at = Column(DateTime, nullable=True)
     
     # Relationships
-    reviewer = relationship("User", foreign_keys=[reviewed_by])
+    reviewer = relationship("User", foreign_keys=[reviewed_by], back_populates="risk_assessment_reviews")
 
 class BlockedIP(Base):
     __tablename__ = "blocked_ips"
@@ -86,7 +86,7 @@ class BlockedIP(Base):
     automated = Column(Boolean, default=True)  # True if blocked by system
     
     # Relationships
-    admin = relationship("User", foreign_keys=[blocked_by])
+    admin = relationship("User", foreign_keys=[blocked_by], back_populates="ip_blocks")
 
 class SuspiciousActivity(Base):
     __tablename__ = "suspicious_activities"

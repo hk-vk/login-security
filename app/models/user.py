@@ -48,17 +48,17 @@ class User(Base):
     # Acknowledged security events
     acknowledged_events = relationship("SecurityEvent", 
                                       foreign_keys="[SecurityEvent.acknowledged_by]",
-                                      backref="acknowledged_by_admin")
+                                      back_populates="acknowledged_by_user")
     
     # Risk assessment reviews
     risk_assessment_reviews = relationship("RiskAssessmentLog", 
                                           foreign_keys="[RiskAssessmentLog.reviewed_by]",
-                                          backref="reviewed_by_admin")
+                                          back_populates="reviewer")
     
     # IP blocks
     ip_blocks = relationship("BlockedIP", 
                             foreign_keys="[BlockedIP.blocked_by]", 
-                            backref="blocked_by_admin")
+                            back_populates="admin")
     
     @property
     def full_name(self):
