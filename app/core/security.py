@@ -97,6 +97,33 @@ def verify_totp(secret: str, code: str) -> bool:
     totp = pyotp.TOTP(secret)
     return totp.verify(code)
 
+# MFA code generation and session handling
+def create_mfa_code(length: int = 6) -> str:
+    """Generate a random MFA code (digits only)."""
+    return "".join(secrets.choice(string.digits) for _ in range(length))
+
+def set_mfa_code_in_session(request, user_id: int, code: str, expire_minutes: int = 5):
+    """Store the MFA code and its expiry in the session."""
+    expiry = datetime.utcnow() + timedelta(minutes=expire_minutes)
+    request.session[f"mfa_code_{user_id}"] = {"code": code, "expires": expiry.isoformat()}
+    print(f"DEBUG: Stored MFA code for user {user_id} in session. Expires at {expiry.isoformat()}")
+
+def get_mfa_code_from_session(request, user_id: int) -> Optional[str]:
+    """Retrieve a valid MFA code from the session, checking expiry."""
+    mfa_data = request.session.get(f"mfa_code_{user_id}")
+    if mfa_data:
+        expiry = datetime.fromisoformat(mfa_data.get("expires"))
+        if datetime.utcnow() < expiry:
+            print(f"DEBUG: Retrieved valid MFA code {mfa_data.get('code')} for user {user_id} from session.")
+            return mfa_data.get("code")
+        else:
+            print(f"DEBUG: MFA code for user {user_id} expired at {expiry.isoformat()}.")
+            # Clear expired code
+            request.session.pop(f"mfa_code_{user_id}", None)
+    else:
+        print(f"DEBUG: No MFA code found in session for user {user_id}.")
+    return None
+
 # Generate secure random password
 def generate_secure_password(length: int = 16) -> str:
     """Generate a cryptographically secure random password"""

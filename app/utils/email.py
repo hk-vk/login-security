@@ -197,4 +197,34 @@ def send_verification_email(background_tasks: BackgroundTasks, email: str) -> st
     )
     
     logger.info(f"Verification email queued for {email}")
-    return code  # Return code for development purposes 
+    return code  # Return code for development purposes
+
+async def send_mfa_code_email(recipient_email: str, code: str) -> bool:
+    """Send the MFA enablement/verification code via email using SMTP."""
+    subject = "Your MFA Verification Code"
+    html_content = f"""
+    <html>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 5px;">
+                <h2 style="color: #4F46E5;">MFA Verification Code</h2>
+                <p>Hello,</p>
+                <p>Please use the following code to verify and enable Multi-Factor Authentication for your account:</p>
+                <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; text-align: center; font-size: 24px; letter-spacing: 5px; font-weight: bold;">
+                    {code}
+                </div>
+                <p>This code will expire in 5 minutes.</p>
+                <p>If you did not request to enable MFA, please ignore this email or contact support.</p>
+                <p>Thank you,<br>Adaptive Login Security System</p>
+            </div>
+        </body>
+    </html>
+    """
+    text_content = f"Your MFA verification code is: {code}. It expires in 5 minutes."
+    
+    # Send synchronously for this flow (can be made async if needed)
+    return send_email(
+        recipient_email=recipient_email,
+        subject=subject,
+        html_content=html_content,
+        text_content=text_content
+    ) 

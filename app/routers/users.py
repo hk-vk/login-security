@@ -11,8 +11,9 @@ from app.models.device import Device
 from app.models.session import Session as DbSession
 from app.schemas.user import UserInfo, UserUpdate, PasswordChange
 from app.routers.auth import get_current_user
-from app.core.security import verify_password, get_password_hash, validate_password
+from app.core.security import verify_password, get_password_hash, validate_password, create_mfa_code, set_mfa_code_in_session, get_mfa_code_from_session
 from app.utils.security import check_password_expiration
+from app.utils.email import send_mfa_code_email
 
 router = APIRouter(tags=["users"], prefix="/users")
 
@@ -329,12 +330,103 @@ async def mfa_settings(request: Request, current_user: User = Depends(get_curren
     )
 
 @router.get("/mfa/enable", response_class=HTMLResponse)
-async def enable_mfa_page(request: Request, current_user: User = Depends(get_current_user)):
-    """Display the page to enable MFA"""
-    # Redirect to MFA setup
-    request.session["mfa_user_id"] = current_user.id
+async def enable_mfa_page(
+    request: Request, 
+    current_user: User = Depends(get_current_user)
+):
+    """Initiate email MFA setup by sending a verification code."""
+    # Generate MFA code
+    mfa_code = create_mfa_code()
     
-    return RedirectResponse(url="/auth/mfa/setup", status_code=status.HTTP_303_SEE_OTHER)
+    # Store code in session temporarily
+    set_mfa_code_in_session(request, current_user.id, mfa_code)
+    
+    # Send email
+    try:
+        await send_mfa_code_email(current_user.email, mfa_code)
+        print(f"DEBUG: MFA enablement email sent to {current_user.email}")
+        # Redirect to the verification page
+        return RedirectResponse(url="/users/mfa/verify-enable", status_code=status.HTTP_303_SEE_OTHER)
+    except Exception as e:
+        print(f"ERROR: Failed to send MFA enablement email: {e}")
+        return templates.TemplateResponse(
+            "users/security.html",
+            {
+                "request": request,
+                "user": current_user,
+                "error": "Failed to send MFA verification email. Please try again later."
+            }
+        )
+
+@router.get("/mfa/verify-enable", response_class=HTMLResponse)
+async def verify_enable_mfa_page(request: Request, current_user: User = Depends(get_current_user)):
+    """Display the page to enter the MFA code sent via email."""
+    if not current_user:
+        return RedirectResponse(url="/auth/login")
+        
+    # Check if the code was sent (presence in session is a good indicator)
+    if not request.session.get(f"mfa_code_{current_user.id}"):
+        return RedirectResponse(url="/users/security", status_code=status.HTTP_303_SEE_OTHER)
+        
+    return templates.TemplateResponse(
+        "users/verify_mfa_enable.html", 
+        {
+            "request": request,
+            "email": current_user.email # Mask part of the email if desired
+        }
+    )
+
+@router.post("/mfa/verify-enable", response_class=HTMLResponse)
+async def verify_enable_mfa(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    mfa_code: str = Form(...)
+):
+    """Verify the MFA code and enable MFA for the user."""
+    if not current_user:
+        return RedirectResponse(url="/auth/login")
+        
+    stored_code = get_mfa_code_from_session(request, current_user.id)
+    
+    if not stored_code:
+        return templates.TemplateResponse(
+            "users/verify_mfa_enable.html", 
+            {
+                "request": request,
+                "email": current_user.email,
+                "error": "MFA code has expired or was not found. Please try enabling MFA again."
+            }
+        )
+        
+    if stored_code == mfa_code:
+        # Code is correct, enable MFA
+        current_user.mfa_enabled = True
+        current_user.mfa_secret = None # Ensure TOTP secret is cleared if switching
+        db.commit()
+        # Clear the code from session
+        request.session.pop(f"mfa_code_{current_user.id}", None)
+        
+        # Redirect to security page with success message
+        # Using session flash message might be better here
+        return templates.TemplateResponse(
+            "users/security.html",
+            {
+                "request": request,
+                "user": current_user,
+                "success": "Email MFA has been successfully enabled."
+            }
+        )
+    else:
+        # Code is incorrect
+        return templates.TemplateResponse(
+            "users/verify_mfa_enable.html", 
+            {
+                "request": request,
+                "email": current_user.email,
+                "error": "Incorrect MFA code. Please try again."
+            }
+        )
 
 @router.post("/mfa/disable", response_class=HTMLResponse)
 async def disable_mfa(
