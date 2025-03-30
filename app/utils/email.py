@@ -23,7 +23,7 @@ verification_codes = {}
 # WARNING: Hardcoding tokens is insecure. Use environment variables in production.
 MAILTRAP_TOKEN = "38069ceb37f64b247b000bc121897652" # Hardcoded token from user example
 SENDER_EMAIL = "hello@demomailtrap.co" # Hardcoded sender email from user example
-SENDER_NAME = "Mailtrap Test" # Using sender name from user example
+SENDER_NAME = "Mailtrap Test" # Corrected sender name from user example
 
 # --- Initialize Mailtrap Client --- 
 mailtrap_client = None
