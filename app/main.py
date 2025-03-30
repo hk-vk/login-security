@@ -190,7 +190,7 @@ async def read_root(request: Request):
     # Check if user is already authenticated
     if await is_authenticated(request, request.cookies.get("access_token")):
         # Redirect authenticated users to dashboard
-        return RedirectResponse(url="/users/dashboard")
+        return RedirectResponse(url="/users/dashboard", status_code=status.HTTP_303_SEE_OTHER)
     
     # Show landing page for non-authenticated users
     return templates.TemplateResponse("index.html", {"request": request})
@@ -200,10 +200,10 @@ async def root_dashboard(request: Request, access_token: Optional[str] = Cookie(
     """Handle dashboard route, redirecting to user dashboard if authenticated"""
     # Check if user is authenticated
     if await is_authenticated(request, access_token):
-        return RedirectResponse(url="/users/dashboard")
+        return RedirectResponse(url="/users/dashboard", status_code=status.HTTP_303_SEE_OTHER)
     
     # If not authenticated, redirect to login page
-    return RedirectResponse(url="/auth/login?next=/users/dashboard")
+    return RedirectResponse(url="/auth/login?next=/users/dashboard", status_code=status.HTTP_303_SEE_OTHER)
 
 @app.on_event("startup")
 async def startup_event():
