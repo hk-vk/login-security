@@ -19,11 +19,11 @@ logger = logging.getLogger(__name__)
 verification_codes = {}
 
 # --- Mailtrap Configuration --- 
-# Using the specific token provided by the user.
+# Using the specific token and sender from the user's example.
 # WARNING: Hardcoding tokens is insecure. Use environment variables in production.
-MAILTRAP_TOKEN = "94078df43c7a5f01fe7753a75587b7d2" 
-SENDER_EMAIL = os.getenv("MAILTRAP_SENDER_EMAIL", "noreply@securitysystem.com")
-SENDER_NAME = os.getenv("MAILTRAP_SENDER_NAME", "Adaptive Login Security System")
+MAILTRAP_TOKEN = "38069ceb37f64b247b000bc121897652" # Hardcoded token from user example
+SENDER_EMAIL = "hello@demomailtrap.co" # Hardcoded sender email from user example
+SENDER_NAME = "Mailtrap Test" # Using sender name from user example
 
 # --- Initialize Mailtrap Client --- 
 mailtrap_client = None
@@ -31,9 +31,9 @@ try:
     if MAILTRAP_TOKEN:
         logger.info(f"Initializing MailtrapClient with token ending in: {MAILTRAP_TOKEN[-4:]}")
         mailtrap_client = MailtrapClient(token=MAILTRAP_TOKEN)
-        # You could add a test send/ping here if the SDK supports it to verify the token early.
     else:
-        logger.error("MAILTRAP_TOKEN is missing. Email sending disabled.")
+        # This case should not happen now with hardcoded token, but kept for safety
+        logger.error("MAILTRAP_TOKEN is missing. Email sending disabled.") 
 except Exception as e:
     logger.error(f"Failed to initialize MailtrapClient: {e}. Email sending disabled.")
     mailtrap_client = None # Ensure client is None if init fails
