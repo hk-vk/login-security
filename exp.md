@@ -1325,6 +1325,213 @@ The Adaptive Login Security System is a sophisticated web application implementi
   }
   ```
 
+#### 4.2.3. Frontend HTML & CSS Implementation
+
+* **Responsive Layout Structure**:
+  * **Implementation**: Custom HTML5 structure with responsive CSS Grid and Flexbox
+  * **Viewport Handling**: Responsive meta tag and media queries for different device sizes
+  * **HTML Structure**:
+    ```html
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Security Dashboard - Adaptive Login Security System</title>
+        <link rel="stylesheet" href="/static/css/normalize.css">
+        <link rel="stylesheet" href="/static/css/dashboard.css">
+    </head>
+    <body>
+        <div class="dashboard-container">
+            <header class="dashboard-header">
+                <div class="logo">
+                    <img src="/static/img/logo.svg" alt="Security System Logo">
+                    <h1>Adaptive Security</h1>
+                </div>
+                <div class="user-info">
+                    <span>{{ current_user.username }}</span>
+                    <a href="/logout" class="logout-btn">Logout</a>
+                </div>
+            </header>
+            
+            <nav class="sidebar">
+                <ul class="nav-menu">
+                    <li class="nav-item active"><a href="/admin/dashboard">Dashboard</a></li>
+                    <li class="nav-item"><a href="/admin/users">User Management</a></li>
+                    <li class="nav-item"><a href="/admin/security">Security Events</a></li>
+                    <li class="nav-item"><a href="/admin/analytics">Analytics</a></li>
+                    <li class="nav-item"><a href="/admin/settings">Settings</a></li>
+                </ul>
+            </nav>
+            
+            <main class="main-content">
+                <!-- Dashboard panels rendered here -->
+                <div class="dashboard-panels">
+                    <div class="panel" id="active-sessions-panel">
+                        <!-- Panel content -->
+                    </div>
+                    <!-- Additional panels -->
+                </div>
+                
+                <!-- Charts section -->
+                <div class="charts-container">
+                    <div class="chart-card">
+                        <h3>Login Attempts (Last 7 Days)</h3>
+                        <canvas id="login-attempts-chart"></canvas>
+                    </div>
+                    <!-- Additional charts -->
+                </div>
+            </main>
+            
+            <footer class="dashboard-footer">
+                <p>&copy; {{ current_year }} Adaptive Login Security System</p>
+            </footer>
+        </div>
+        
+        <!-- JavaScript includes -->
+        <script src="/static/js/chart.min.js"></script>
+        <script src="/static/js/dashboard.js"></script>
+    </body>
+    </html>
+    ```
+    
+* **CSS Architecture**:
+  * **Implementation**: Custom CSS with BEM (Block, Element, Modifier) naming convention
+  * **Responsive Breakpoints**: 
+    * Mobile: < 768px
+    * Tablet: 768px - 1024px
+    * Desktop: > 1024px
+  * **Key CSS Techniques**:
+    * CSS Grid for overall page layout
+    * Flexbox for component alignment
+    * CSS Variables for consistent theming
+    * Media queries for responsive adaptations
+  
+  * **Example CSS Implementation**:
+    ```css
+    /* CSS Variables for theming */
+    :root {
+        --primary-color: #3f51b5;
+        --secondary-color: #f50057;
+        --success-color: #4caf50;
+        --warning-color: #ff9800;
+        --danger-color: #f44336;
+        --light-bg: #f5f5f5;
+        --dark-bg: #333;
+        --text-light: #fff;
+        --text-dark: #333;
+        --border-radius: 4px;
+        --shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    
+    /* Base Layout */
+    .dashboard-container {
+        display: grid;
+        height: 100vh;
+        grid-template-rows: auto 1fr auto;
+        grid-template-columns: 250px 1fr;
+        grid-template-areas:
+            "header header"
+            "sidebar main"
+            "footer footer";
+    }
+    
+    .dashboard-header {
+        grid-area: header;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.5rem 1rem;
+        background-color: var(--primary-color);
+        color: var(--text-light);
+        box-shadow: var(--shadow);
+    }
+    
+    .sidebar {
+        grid-area: sidebar;
+        background-color: var(--dark-bg);
+        color: var(--text-light);
+        padding: 1rem 0;
+        height: 100%;
+        overflow-y: auto;
+    }
+    
+    .main-content {
+        grid-area: main;
+        background-color: var(--light-bg);
+        padding: 1rem;
+        overflow-y: auto;
+    }
+    
+    .dashboard-footer {
+        grid-area: footer;
+        text-align: center;
+        padding: 0.5rem;
+        background-color: var(--dark-bg);
+        color: var(--text-light);
+    }
+    
+    /* Component Styles */
+    .panel {
+        background-color: white;
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow);
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .chart-card {
+        background-color: white;
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow);
+        padding: 1rem;
+        margin: 1rem 0;
+        height: 300px;
+    }
+    
+    /* Responsive Adaptations */
+    @media (max-width: 768px) {
+        .dashboard-container {
+            grid-template-columns: 1fr;
+            grid-template-areas:
+                "header"
+                "main"
+                "footer";
+        }
+        
+        .sidebar {
+            display: none;
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1000;
+        }
+        
+        .sidebar.active {
+            display: block;
+        }
+        
+        .mobile-menu-toggle {
+            display: block;
+        }
+    }
+    ```
+
+* **Frontend Component Architecture**:
+  * **Security Dashboard Widgets**: Self-contained components with dedicated styling and JS functionality
+  * **Dynamic Content Loading**: AJAX-based content loading with loading state indicators
+  * **Notifications System**: Toast/snackbar notifications for system alerts and events
+  * **Form Validation**: Client-side form validation with error highlighting and custom error messages
+  * **Accessibility Considerations**: ARIA attributes, keyboard navigation support, and sufficient color contrast
+
+* **Frontend Security Measures**:
+  * **XSS Prevention**: Context-appropriate output escaping in Jinja2 templates
+  * **CSRF Protection**: CSRF tokens embedded in forms
+  * **Sanitization**: Input sanitization for user-provided content
+  * **Safe JavaScript**: Proper DOM API usage to avoid JS injection vulnerabilities
+
 ### 4.3. User Management Interface
 
 #### 4.3.1. User CRUD Operations
