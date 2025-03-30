@@ -73,6 +73,48 @@ async def is_admin(request: Request, access_token: Optional[str] = Cookie(None))
     finally:
         db.close()
 
+# Helper function to check if user is authenticated (any role)
+async def is_authenticated(request: Request, access_token: Optional[str] = Cookie(None)):
+    from app.database.database import SessionLocal
+    from app.models.user import User
+    from app.models.session import Session as DbSession
+    from datetime import datetime
+    
+    # No token, not authenticated
+    if not access_token:
+        return False
+    
+    if access_token.startswith("Bearer "):
+        access_token = access_token[7:]  # Remove "Bearer " prefix
+    
+    # Get a database session
+    db = SessionLocal()
+    try:
+        # Look up the token in the sessions table
+        session = db.query(DbSession).filter(
+            DbSession.token == access_token,
+            DbSession.is_active == True,
+            DbSession.expires_at > datetime.utcnow()
+        ).first()
+        
+        if not session:
+            return False
+        
+        # Get the user
+        user = db.query(User).filter(User.id == session.user_id).first()
+        if not user or not user.is_active:
+            return False
+        
+        # Update session last active time
+        session.last_active_at = datetime.utcnow()
+        db.commit()
+        
+        # Store user in request state for later use
+        request.state.user = user
+        return True
+    finally:
+        db.close()
+
 # Initialize the FastAPI app
 app = FastAPI(
     title="Adaptive Login Security System",
@@ -144,7 +186,24 @@ async def read_root(request: Request):
     """Handle both GET and HEAD requests for the root path"""
     if request.method == "HEAD":
         return HTMLResponse("")
+    
+    # Check if user is already authenticated
+    if await is_authenticated(request, request.cookies.get("access_token")):
+        # Redirect authenticated users to dashboard
+        return RedirectResponse(url="/users/dashboard")
+    
+    # Show landing page for non-authenticated users
     return templates.TemplateResponse("index.html", {"request": request})
+
+@app.get("/dashboard", response_class=HTMLResponse)
+async def root_dashboard(request: Request, access_token: Optional[str] = Cookie(None)):
+    """Handle dashboard route, redirecting to user dashboard if authenticated"""
+    # Check if user is authenticated
+    if await is_authenticated(request, access_token):
+        return RedirectResponse(url="/users/dashboard")
+    
+    # If not authenticated, redirect to login page
+    return RedirectResponse(url="/auth/login?next=/users/dashboard")
 
 @app.on_event("startup")
 async def startup_event():

@@ -18,6 +18,34 @@ router = APIRouter(tags=["users"], prefix="/users")
 
 templates = Jinja2Templates(directory="app/templates")
 
+# User dashboard
+@router.get("/dashboard", response_class=HTMLResponse)
+async def user_dashboard(request: Request, current_user: User = Depends(get_current_user)):
+    """Display the user dashboard page"""
+    # Get last login time from DbSession
+    db = next(get_db())
+    last_login = db.query(DbSession).filter(
+        DbSession.user_id == current_user.id,
+        DbSession.is_active == True
+    ).order_by(DbSession.created_at.desc()).first()
+    
+    # Prepare user info for template
+    user_info = {
+        "username": current_user.username,
+        "email": current_user.email,
+        "full_name": f"{current_user.first_name or ''} {current_user.last_name or ''}".strip() or "Not provided",
+        "last_login": last_login.created_at if last_login else None,
+        "mfa_enabled": current_user.mfa_enabled
+    }
+    
+    return templates.TemplateResponse(
+        "dashboard.html", 
+        {
+            "request": request,
+            "current_user": user_info
+        }
+    )
+
 # User profile
 @router.get("/profile", response_class=HTMLResponse)
 async def user_profile(request: Request, current_user: User = Depends(get_current_user)):
