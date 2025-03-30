@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+
+{% block title %}Active Sessions - Adaptive Login Security System{% endblock %}
+
+{% block content %}
+<div class="sessions-container">
+    <div class="sessions-card">
+        <div class="sessions-header">
+            <h1>Active Sessions</h1>
+            <p>Manage your currently active login sessions</p>
+        </div>
+        
+        <div class="sessions-content">
+            {% if error %}
+            <div class="alert alert-danger">
+                {{ error }}
+            </div>
+            {% endif %}
+            
+            {% if success %}
+            <div class="alert alert-success">
+                {{ success }}
+            </div>
+            {% endif %}
+            
+            <div class="session-list">
+                {% if sessions %}
+                <table class="session-table">
+                    <thead>
+                        <tr>
+                            <th>Device</th>
+                            <th>IP Address</th>
+                            <th>Last Active</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for session in sessions %}
+                        <tr>
+                            <td>{{ session.device_info or 'Unknown Device' }}</td>
+                            <td>{{ session.ip_address }}</td>
+                            <td>{{ session.last_active_at.strftime('%Y-%m-%d %H:%M:%S') if session.last_active_at else 'N/A' }}</td>
+                            <td>
+                                <form method="POST" action="/users/sessions/{{ session.id }}/revoke" class="inline-form">
+                                    <button type="submit" class="btn btn-sm btn-warning">Revoke</button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <p>No active sessions found.</p>
+                {% endif %}
+            </div>
+            
+            <div class="button-group mt-4">
+                <form method="POST" action="/users/sessions/revoke-all" class="inline-form">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-power-off"></i> Revoke All Other Sessions
+                    </button>
+                </form>
+                <a href="/users/security" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Back to Security Settings
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .sessions-container {
+        max-width: 900px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+    }
+    
+    .sessions-card {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+    }
+    
+    .sessions-header {
+        background: linear-gradient(to right, #4f46e5, #6366f1);
+        color: white;
+        padding: 2rem;
+    }
+    
+    .sessions-header h1 {
+        margin: 0;
+        font-size: 1.8rem;
+    }
+    
+    .sessions-header p {
+        margin: 0.5rem 0 0;
+        opacity: 0.9;
+    }
+    
+    .sessions-content {
+        padding: 2rem;
+    }
+    
+    .session-list {
+        margin-top: 1rem;
+        overflow-x: auto; /* For responsiveness */
+    }
+    
+    .session-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 1rem;
+        font-size: 0.9rem;
+    }
+    
+    .session-table th, .session-table td {
+        padding: 0.75rem;
+        text-align: left;
+        border-bottom: 1px solid #e5e7eb;
+    }
+    
+    .session-table th {
+        background-color: #f8fafc;
+        font-weight: 600;
+        color: #374151;
+    }
+    
+    .inline-form {
+        display: inline;
+    }
+    
+    .btn-sm {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.8rem;
+        border-radius: 4px;
+    }
+    
+    .btn-warning {
+        background: #f59e0b;
+        color: white;
+        border: none;
+    }
+    
+    .btn-warning:hover {
+        background: #d97706;
+    }
+    
+    .button-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+    
+    .mt-4 {
+        margin-top: 2rem;
+    }
+    
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.75rem 1.5rem;
+        border-radius: 4px;
+        font-weight: 500;
+        text-decoration: none;
+        transition: all 0.2s;
+    }
+    
+    .btn i {
+        margin-right: 0.5rem;
+    }
+    
+    .btn-danger {
+        background: #ef4444;
+        color: white;
+        border: none;
+    }
+    
+    .btn-danger:hover {
+        background: #dc2626;
+    }
+    
+    .btn-secondary {
+        background: #f1f5f9;
+        color: #334155;
+        border: 1px solid #cbd5e1;
+    }
+    
+    .btn-secondary:hover {
+        background: #e2e8f0;
+    }
+    
+    .alert {
+        padding: 1rem;
+        border-radius: 4px;
+        margin-bottom: 1rem;
+    }
+    
+    .alert-danger {
+        background: #fee2e2;
+        border: 1px solid #fecaca;
+        color: #991b1b;
+    }
+    
+    .alert-success {
+        background: #dcfce7;
+        border: 1px solid #bbf7d0;
+        color: #166534;
+    }
+    
+    @media (max-width: 768px) {
+        .session-table th, .session-table td {
+            font-size: 0.85rem;
+            padding: 0.5rem;
+        }
+    }
+    
+    @media (max-width: 640px) {
+        .button-group {
+            flex-direction: column;
+        }
+        
+        .btn {
+            width: 100%;
+            justify-content: center;
+        }
+        
+        .session-table {
+            display: block;
+            overflow-x: auto;
+            white-space: nowrap;
+        }
+    }
+</style>
+{% endblock %} 

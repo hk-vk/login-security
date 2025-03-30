@@ -361,7 +361,7 @@ async def disable_mfa(
     db.commit()
     
     return templates.TemplateResponse(
-        "users/mfa_settings.html", 
+        "users/security.html",
         {
             "request": request,
             "user": current_user,
