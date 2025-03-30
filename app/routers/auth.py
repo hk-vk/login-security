@@ -415,9 +415,19 @@ async def register(
         # Hash password
         hashed_password = get_password_hash(password)
         
-        # Create user
+        # Create user with username derived from email (part before @)
+        username = email.split('@')[0]
+        
+        # Check if username already exists and add number if needed
+        base_username = username
+        counter = 1
+        while db.query(User).filter(User.username == username).first():
+            username = f"{base_username}{counter}"
+            counter += 1
+            
         user = User(
             email=email,
+            username=username,  # Add username here
             hashed_password=hashed_password,
             first_name=first_name,
             last_name=last_name,
