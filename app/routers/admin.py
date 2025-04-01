@@ -166,21 +166,41 @@ async def admin_dashboard(
              critical_alerts.append({"id": 0, "severity": "Info", "message": "No critical security events in the last hour.", "details": "System normal.", "timestamp": now.strftime("%Y-%m-%d %H:%M:%S"), "acknowledged": True})
 
         # System Status (Fetch real data if psutil is available)
-        system_status = get_system_health(db) # Gets disk usage from util
+        # Initialize with defaults
+        system_status = {
+            "cpu_usage": "N/A",
+            "memory_usage": "N/A",
+            "disk_usage": {"error": "Could not retrieve disk usage"},
+            "last_checked": now.strftime("%Y-%m-%d %H:%M:%S")
+        }
+        try:
+            # Attempt to get disk health
+            disk_health = get_system_health() # REMOVED db argument
+            if "error" not in disk_health:
+                system_status["disk_usage"] = disk_health.get("disk_usage", {"error": "Disk usage data missing"})
+                system_status["last_checked"] = disk_health.get("timestamp", system_status["last_checked"]) # Update timestamp if available
+            else:
+                print(f"Warning: get_system_health failed: {disk_health.get('error')}")
+                # Keep default disk_usage error message
+
+        except Exception as health_err:
+             print(f"Warning: Error calling get_system_health: {health_err}")
+             # Keep default disk_usage error message
+
+        # Get CPU/Memory usage if psutil is available
         if psutil:
-             try:
-                 system_status["cpu_usage"] = psutil.cpu_percent(interval=None) # Current CPU usage
-                 mem = psutil.virtual_memory()
-                 system_status["memory_usage"] = mem.percent # Current Memory usage
-             except Exception as ps_err:
-                 print(f"Warning: Could not fetch CPU/Memory usage with psutil: {ps_err}")
-                 system_status["cpu_usage"] = "N/A"
-                 system_status["memory_usage"] = "N/A"
+            try:
+                system_status["cpu_usage"] = psutil.cpu_percent(interval=None) # Current CPU usage
+                mem = psutil.virtual_memory()
+                system_status["memory_usage"] = mem.percent # Current Memory usage
+                # Update last checked time after successful psutil calls
+                system_status["last_checked"] = now.strftime("%Y-%m-%d %H:%M:%S")
+            except Exception as ps_err:
+                print(f"Warning: Could not fetch CPU/Memory usage with psutil: {ps_err}")
+                # Keep N/A values set during initialization
         else:
-             print("Warning: psutil library not found. CPU/Memory usage not available.")
-             system_status["cpu_usage"] = "N/A"
-             system_status["memory_usage"] = "N/A"
-        system_status["last_checked"] = now.strftime("%Y-%m-%d %H:%M:%S")
+            print("Warning: psutil library not found. CPU/Memory usage not available.")
+            # Keep N/A values set during initialization
 
 
         # --- Chart Data (Fetch real data where possible) ---
