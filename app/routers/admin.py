@@ -535,8 +535,9 @@ async def admin_logs(
     
     logs = logs_query.offset(offset).limit(items_per_page).all()
     
-    # Fetch users for dropdown filter
-    users = db.query(User.id, User.email).order_by(User.email).all()
+    # Fetch users for dropdown filter and convert to a dictionary
+    users_list = db.query(User.id, User.email).order_by(User.email).all()
+    users_dict = {user_id: email for user_id, email in users_list}
 
     return templates.TemplateResponse("admin/logs.html", {
         "request": request,
@@ -544,7 +545,7 @@ async def admin_logs(
         "current_page": current_page,
         "total_pages": total_pages,
         "total_items": total_items,
-        "users": users, # For filter dropdown
+        "users": users_dict, # Pass the dictionary instead of the list
         "filters": { # Pass current filters back to template
             "success": success,
             "user_id": user_id,

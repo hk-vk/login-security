@@ -1,4 +1,4 @@
-{% extends "../base.html" %}
+{% extends "base.html" %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', path='css/admin.css') }}">
@@ -425,7 +425,7 @@
                                 <span class="badge bg-secondary">User</span>
                                 {% endif %}
                             </td>
-                            <td>{{ user.last_login_at or 'Never' }}</td>
+                            <td>{{ user.last_login or 'Never' }}</td>
                             <td>
                                 <button class="btn btn-sm btn-primary" onclick="editUser('{{ user.id }}')">Edit</button>
                                 {% if user.id != admin_user.id %}

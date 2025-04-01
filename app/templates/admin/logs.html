@@ -512,12 +512,13 @@
                             </span>
                         </td>
                         <td>
-                            {% if log.user_id in users %}
+                            {% set user_email = users.get(log.user_id, 'Unknown') %}
+                            {% if user_email != 'Unknown' %}
                             <div class="user-info">
                                 <div class="avatar-placeholder">
-                                    {{ users[log.user_id].email[0] | upper }}
+                                    {{ user_email[0] | upper }}
                                 </div>
-                                <span>{{ users[log.user_id].email }}</span>
+                                <span>{{ user_email }}</span>
                             </div>
                             {% else %}
                             <span class="text-muted">Unknown</span>
