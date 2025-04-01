@@ -143,7 +143,10 @@ app.add_middleware(
 )
 
 # Now import routers
-from app.routers import auth, admin, users, security
+from app.routers.auth import router as auth_router
+from app.routers.admin import router as admin_router
+from app.routers.users import router as users_router
+from app.routers.security import router as security_router
 
 # Add specific admin routes to handle authentication
 @app.get("/admin", response_class=HTMLResponse)
@@ -160,10 +163,10 @@ async def admin_root(request: Request, access_token: Optional[str] = Cookie(None
     )
 
 # Include routers
-app.include_router(auth)              # Auth router
-app.include_router(admin, prefix="/admin")  # Admin router
-app.include_router(users)             # Users router
-app.include_router(security)          # Security router
+app.include_router(auth_router)              # Auth router
+app.include_router(admin_router, prefix="/admin")  # Admin router
+app.include_router(users_router)             # Users router
+app.include_router(security_router)          # Security router
 
 @app.exception_handler(404)
 async def custom_404_handler(request: Request, exc):
