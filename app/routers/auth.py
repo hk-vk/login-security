@@ -74,7 +74,13 @@ def get_current_user(token: str = Depends(get_token_from_cookie), db: Session = 
     
     print("DEBUG: Calling verify_token...")
     # Pass the token directly to verify_token (it should handle None if necessary)
-    token_data = verify_token(token)
+    try:
+        token_data = verify_token(token)
+    except Exception as e:
+        # Catch any exception during token verification
+        print(f"ERROR: Exception during verify_token: {str(e)}")
+        token_data = None # Treat as invalid token
+
     print(f"DEBUG: verify_token result: {token_data}")
 
     if not token_data or not token_data.get("valid"):
