@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+
+{% block title %}Admin - Adaptive Login Security System{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', path='css/admin.css') }}">
+<style>
+body {
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+}
+main {
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
+}
+.admin-container {
+    padding: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    grid-gap: 20px;
+}
+
+.admin-sidebar {
+    background: #2c3e50;
+    color: white;
+    border-radius: 8px;
+    height: 100%;
+    position: sticky;
+    top: 20px;
+}
+
+.sidebar-header {
+    padding: 15px;
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.sidebar-header i {
+    margin-right: 10px;
+    font-size: 20px;
+}
+
+.sidebar-header h3 {
+    margin: 0;
+    font-size: 18px;
+}
+
+.sidebar-nav {
+    padding: 15px 0;
+}
+
+.sidebar-nav a {
+    display: block;
+    padding: 10px 15px;
+    color: #ecf0f1;
+    text-decoration: none;
+    transition: background 0.3s;
+}
+
+.sidebar-nav a:hover, .sidebar-nav a.active {
+    background: rgba(255,255,255,0.1);
+}
+
+.sidebar-nav a i {
+    margin-right: 10px;
+    width: 20px;
+    text-align: center;
+}
+
+.admin-main {
+    background: #f5f5f5;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    padding: 20px;
+}
+
+.admin-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #eee;
+}
+
+.admin-header h2 {
+    margin: 0;
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+}
+
+/* Debug info */
+.debug-section {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(0,0,0,0.8);
+    color: #fff;
+    padding: 10px;
+    font-family: monospace;
+    z-index: 10000;
+    max-height: 200px;
+    overflow: auto;
+    display: none; /* Hide by default */
+}
+.debug-toggle {
+    position: fixed;
+    bottom: 10px;
+    right: 10px;
+    background: rgba(0,0,0,0.5);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 5px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    z-index: 10001;
+}
+.debug-toggle:hover {
+    background: rgba(0,0,0,0.7);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-container">
+    <div class="admin-sidebar">
+        <div class="sidebar-header">
+            <i class="fas fa-shield-alt"></i>
+            <h3>Admin Panel</h3>
+        </div>
+        <div class="sidebar-nav">
+            <a href="/admin" {% if request.url.path == '/admin' %}class="active"{% endif %}>
+                <i class="fas fa-tachometer-alt"></i> Dashboard
+            </a>
+            <a href="/admin/users" {% if request.url.path == '/admin/users' %}class="active"{% endif %}>
+                <i class="fas fa-users"></i> Users
+            </a>
+            <a href="/admin/logs" {% if request.url.path == '/admin/logs' %}class="active"{% endif %}>
+                <i class="fas fa-history"></i> Logs
+            </a>
+            <a href="/admin/security/report" {% if request.url.path == '/admin/security/report' %}class="active"{% endif %}>
+                <i class="fas fa-chart-line"></i> Reports
+            </a>
+            <a href="/admin/maintenance" {% if request.url.path == '/admin/maintenance' %}class="active"{% endif %}>
+                <i class="fas fa-tools"></i> Maintenance
+            </a>
+            <a href="/admin/settings" {% if request.url.path == '/admin/settings' %}class="active"{% endif %}>
+                <i class="fas fa-cog"></i> Settings
+            </a>
+        </div>
+    </div>
+    <div class="admin-main">
+        {% block admin_content %}{% endblock %}
+    </div>
+</div>
+{% endblock %} 

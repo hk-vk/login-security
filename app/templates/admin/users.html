@@ -1,4 +1,6 @@
-{% extends "base.html" %}
+{% extends "admin/admin_base.html" %}
+
+{% block title %}Admin Users - Adaptive Login Security System{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', path='css/admin.css') }}">
@@ -48,165 +50,141 @@
 </style>
 {% endblock %}
 
-{% block content %}
-<div class="admin-container">
-    <!-- Admin Sidebar -->
-    <div class="admin-sidebar">
-        <div class="sidebar-header">
-            <i class="fas fa-shield-alt"></i>
-            <h3>Admin Panel</h3>
-        </div>
-        <div class="sidebar-nav">
-            <a href="/admin/dashboard" class="{{ 'active' if request.url.path == '/admin/dashboard' else '' }}">
-                <i class="fas fa-tachometer-alt"></i> Dashboard
-            </a>
-            <a href="/admin/users" class="{{ 'active' if request.url.path == '/admin/users' else '' }}">
-                <i class="fas fa-users"></i> Users
-            </a>
-            <a href="/admin/logs" class="{{ 'active' if request.url.path == '/admin/logs' else '' }}">
-                <i class="fas fa-list"></i> Logs
-            </a>
-            <a href="/admin/security" class="{{ 'active' if request.url.path == '/admin/security' else '' }}">
-                <i class="fas fa-lock"></i> Security
-            </a>
-            <a href="/admin/settings" class="{{ 'active' if request.url.path == '/admin/settings' else '' }}">
-                <i class="fas fa-cog"></i> Settings
-            </a>
-            <a href="/dashboard">
-                <i class="fas fa-arrow-left"></i> Back to App
-            </a>
+{% block admin_content %}
+<div class="admin-header">
+    <h2><i class="fas fa-users"></i> User Management</h2>
+    <div class="header-actions">
+        <div class="action-buttons">
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createUserModal">
+                <i class="fas fa-plus"></i> New User
+            </button>
         </div>
     </div>
+</div>
 
-    <!-- Main Content -->
-    <div class="admin-main">
-        <!-- Header -->
-        <div class="admin-header">
-            <h2>User Management</h2>
-            <div class="header-actions">
-                <button class="btn-primary" onclick="document.getElementById('addUserModal').style.display='flex'">
-                    <i class="fas fa-plus"></i> Add User
+<!-- Users Table -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="fas fa-list"></i> Users</h5>
+        <span class="badge bg-primary">{{ total_users }} users</span>
+    </div>
+    
+    <!-- Search & Filters -->
+    <div class="users-filters">
+        <div class="search-box">
+            <i class="fas fa-search"></i>
+            <input type="text" id="searchInput" placeholder="Search users..." 
+                   value="{{ search or '' }}" onkeyup="if(event.key==='Enter') searchUsers()">
+        </div>
+        <div class="filter-group">
+            <select id="statusFilter" onchange="searchUsers()">
+                <option value="">All Status</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+            </select>
+            <select id="roleFilter" onchange="searchUsers()">
+                <option value="">All Roles</option>
+                <option value="admin">Admin</option>
+                <option value="user">User</option>
+            </select>
+        </div>
+        <button class="btn-secondary" onclick="resetFilters()">
+            <i class="fas fa-redo"></i> Reset
+        </button>
+    </div>
+
+    <!-- Users Table -->
+    <div class="users-table-container">
+        <table class="users-table">
+            <thead>
+                <tr>
+                    <th>Email</th>
+                    <th>Name</th>
+                    <th>Status</th>
+                    <th>Role</th>
+                    <th>Last Login</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                <tr>
+                    <td>
+                        <div class="user-info">
+                            <div class="avatar-placeholder">
+                                {{ user.email[0] | upper }}
+                            </div>
+                            <span>{{ user.email }}</span>
+                        </div>
+                    </td>
+                    <td>{{ user.first_name }} {{ user.last_name }}</td>
+                    <td>
+                        {% if user.is_active %}
+                        <span class="badge severity-info">
+                            <i class="fas fa-check-circle"></i>Active
+                        </span>
+                        {% else %}
+                        <span class="badge severity-error">
+                            <i class="fas fa-times-circle"></i>Inactive
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if user.is_superuser %}
+                        <span class="badge event-auth">
+                            <i class="fas fa-shield-alt"></i>Admin
+                        </span>
+                        {% else %}
+                        <span class="badge event-user">
+                            <i class="fas fa-user"></i>User
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td>{{ user.last_login or 'Never' }}</td>
+                    <td>
+                        <div class="action-buttons">
+                            <button class="btn-icon" onclick="editUser('{{ user.id }}')">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            {% if user.id != admin_user.id %}
+                            <button class="btn-icon delete" onclick="deleteUser('{{ user.id }}')">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- Pagination -->
+        {% if total_pages > 1 %}
+        <div class="table-footer">
+            <div class="entries-info">
+                Showing <span>{{ (current_page - 1) * 10 + 1 }}</span> to <span>{{ [current_page * 10, total_items] | min }}</span> of <span>{{ total_items }}</span> users
+            </div>
+            <div class="pagination">
+                <button class="btn-icon" onclick="window.location.href='?page={{ current_page - 1 }}{% if search %}&search={{ search }}{% endif %}'" {% if current_page <= 1 %}disabled{% endif %}>
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <div class="page-numbers">
+                    {% for p in range(1, total_pages + 1) %}
+                        {% if p == current_page %}
+                            <button class="active">{{ p }}</button>
+                        {% elif p <= 3 or p == total_pages or p >= current_page - 1 and p <= current_page + 1 %}
+                            <button onclick="window.location.href='?page={{ p }}{% if search %}&search={{ search }}{% endif %}'">{{ p }}</button>
+                        {% elif p == 4 and total_pages > 6 %}
+                            <span>...</span>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+                <button class="btn-icon" onclick="window.location.href='?page={{ current_page + 1 }}{% if search %}&search={{ search }}{% endif %}'" {% if current_page >= total_pages %}disabled{% endif %}>
+                    <i class="fas fa-chevron-right"></i>
                 </button>
             </div>
         </div>
-
-        <!-- Search & Filters -->
-        <div class="users-filters">
-            <div class="search-box">
-                <i class="fas fa-search"></i>
-                <input type="text" id="searchInput" placeholder="Search users..." 
-                       value="{{ search or '' }}" onkeyup="if(event.key==='Enter') searchUsers()">
-            </div>
-            <div class="filter-group">
-                <select id="statusFilter" onchange="searchUsers()">
-                    <option value="">All Status</option>
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                </select>
-                <select id="roleFilter" onchange="searchUsers()">
-                    <option value="">All Roles</option>
-                    <option value="admin">Admin</option>
-                    <option value="user">User</option>
-                </select>
-            </div>
-            <button class="btn-secondary" onclick="resetFilters()">
-                <i class="fas fa-redo"></i> Reset
-            </button>
-        </div>
-
-        <!-- Users Table -->
-        <div class="users-table-container">
-            <table class="users-table">
-                <thead>
-                    <tr>
-                        <th>Email</th>
-                        <th>Name</th>
-                        <th>Status</th>
-                        <th>Role</th>
-                        <th>Last Login</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for user in users %}
-                    <tr>
-                        <td>
-                            <div class="user-info">
-                                <div class="avatar-placeholder">
-                                    {{ user.email[0] | upper }}
-                                </div>
-                                <span>{{ user.email }}</span>
-                            </div>
-                        </td>
-                        <td>{{ user.first_name }} {{ user.last_name }}</td>
-                        <td>
-                            {% if user.is_active %}
-                            <span class="badge severity-info">
-                                <i class="fas fa-check-circle"></i>Active
-                            </span>
-                            {% else %}
-                            <span class="badge severity-error">
-                                <i class="fas fa-times-circle"></i>Inactive
-                            </span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if user.is_superuser %}
-                            <span class="badge event-auth">
-                                <i class="fas fa-shield-alt"></i>Admin
-                            </span>
-                            {% else %}
-                            <span class="badge event-user">
-                                <i class="fas fa-user"></i>User
-                            </span>
-                            {% endif %}
-                        </td>
-                        <td>{{ user.last_login or 'Never' }}</td>
-                        <td>
-                            <div class="action-buttons">
-                                <button class="btn-icon" onclick="editUser('{{ user.id }}')">
-                                    <i class="fas fa-edit"></i>
-                                </button>
-                                {% if user.id != admin_user.id %}
-                                <button class="btn-icon delete" onclick="deleteUser('{{ user.id }}')">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                                {% endif %}
-                            </div>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-
-            <!-- Pagination -->
-            {% if total_pages > 1 %}
-            <div class="table-footer">
-                <div class="entries-info">
-                    Showing <span>{{ (current_page - 1) * 10 + 1 }}</span> to <span>{{ [current_page * 10, total_items] | min }}</span> of <span>{{ total_items }}</span> users
-                </div>
-                <div class="pagination">
-                    <button class="btn-icon" onclick="window.location.href='?page={{ current_page - 1 }}{% if search %}&search={{ search }}{% endif %}'" {% if current_page <= 1 %}disabled{% endif %}>
-                        <i class="fas fa-chevron-left"></i>
-                    </button>
-                    <div class="page-numbers">
-                        {% for p in range(1, total_pages + 1) %}
-                            {% if p == current_page %}
-                                <button class="active">{{ p }}</button>
-                            {% elif p <= 3 or p == total_pages or p >= current_page - 1 and p <= current_page + 1 %}
-                                <button onclick="window.location.href='?page={{ p }}{% if search %}&search={{ search }}{% endif %}'">{{ p }}</button>
-                            {% elif p == 4 and total_pages > 6 %}
-                                <span>...</span>
-                            {% endif %}
-                        {% endfor %}
-                    </div>
-                    <button class="btn-icon" onclick="window.location.href='?page={{ current_page + 1 }}{% if search %}&search={{ search }}{% endif %}'" {% if current_page >= total_pages %}disabled{% endif %}>
-                        <i class="fas fa-chevron-right"></i>
-                    </button>
-                </div>
-            </div>
-            {% endif %}
-        </div>
+        {% endif %}
     </div>
 </div>
 

@@ -521,11 +521,13 @@ async def admin_logs(
     # Fetch filtered logs
     logs_query = fetch_filter_logs(
         db=db,
-        start_date=start_date,
-        end_date=end_date,
-        success=success,
-        user_id=user_id,
-        ip_address=ip_address
+        filters={
+            'start_date': start_date,
+            'end_date': end_date,
+            'success': success,
+            'user_id': user_id,
+            'ip_address': ip_address
+        }
     ) # Returns a query object
 
     total_items = logs_query.count()
@@ -578,11 +580,13 @@ async def export_logs(
 
     logs = fetch_filter_logs(
         db=db,
-        start_date=start_date,
-        end_date=end_date,
-        success=success,
-        user_id=user_id,
-        ip_address=ip_address
+        filters={
+            'start_date': start_date,
+            'end_date': end_date,
+            'success': success,
+            'user_id': user_id,
+            'ip_address': ip_address
+        }
     ).all() # Fetch all matching logs for export
 
     if format == "csv":

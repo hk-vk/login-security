@@ -113,23 +113,18 @@ def create_initial_data():
     except Exception as e:
         print(f"Error creating initial data: {e}")
 
-def run_app():
-    """Run the FastAPI application with uvicorn."""
-    print("Starting the application...")
+def main():
+    """Run the FastAPI application using uvicorn"""
     try:
-        # Check if running on Windows to determine the appropriate command format
-        if os.name == 'nt':  # Windows
-            subprocess.run(
-                ["uvicorn", "app.main:app", "--reload", "--host", "0.0.0.0", "--port", "8000"],
-                check=True
-            )
-        else:  # Linux/Mac
-            os.system("uvicorn app.main:app --reload --host 0.0.0.0 --port 8000")
-    except subprocess.CalledProcessError as e:
-        print(f"Error starting application: {e}")
-        sys.exit(1)
+        subprocess.run([
+            sys.executable, "-m", "uvicorn", "app.main:app", "--reload"
+        ], check=True)
     except KeyboardInterrupt:
-        print("Application stopped.")
+        print("\nShutting down server...")
+    except Exception as e:
+        print(f"Error running server: {e}")
+        return 1
+    return 0
 
 if __name__ == "__main__":
     # Ensure all requirements are installed
@@ -140,4 +135,4 @@ if __name__ == "__main__":
     check_database()
     
     # Run the application
-    run_app() 
+    sys.exit(main()) 
