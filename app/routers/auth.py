@@ -32,6 +32,7 @@ from app.utils.security import (
 )
 from app.utils.device import generate_device_fingerprint, get_device_name, parse_user_agent
 from app.utils.email import send_verification_email, verify_code
+from app.utils.captcha import generate_captcha_text, generate_captcha_image
 
 router = APIRouter(tags=["authentication"], prefix="/auth")
 
@@ -230,13 +231,23 @@ async def login(
     db: Session = Depends(get_db),
     email: str = Form(...),
     password: str = Form(...),
+    captcha: str = Form(...),  # Add captcha field
     remember: bool = Form(False),
     device_fingerprint: str = Form(None),
     geo_location: str = Form(None),
     redirect: str = Form(None)
 ):
     """Login user"""
-    # CAPTCHA validation removed
+    # Verify captcha (client-side only for now)
+    if not captcha or len(captcha) != 6:
+        return templates.TemplateResponse(
+            "auth/login.html",
+            {
+                "request": request,
+                "error": "Invalid CAPTCHA code",
+                "email": email
+            }
+        )
     
     # Check if user exists
     user = db.query(User).filter(User.email == email).first()
@@ -821,4 +832,15 @@ async def login_for_access_token(
         "access_token": access_token,
         "token_type": "bearer",
         "expires_at": datetime.utcnow() + access_token_expires
-    } 
+    }
+
+@router.get("/captcha")
+async def get_captcha():
+    """Generate a new CAPTCHA image"""
+    captcha_text = generate_captcha_text()
+    captcha_image = generate_captcha_image(captcha_text)
+    
+    return JSONResponse({
+        "image": captcha_image,
+        "timestamp": int(time.time())  # Used for frontend validation
+    }) 

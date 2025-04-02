@@ -1,9 +1,9 @@
-{% extends "admin/admin_base.html" %}
+{% extends "base.html" %}
 
 {% block title %}Admin Dashboard - Adaptive Login Security System{% endblock %}
 
 {% block extra_css %}
-{{ super() }}
+<link rel="stylesheet" href="{{ url_for('static', path='css/admin.css') }}">
 <style>
 body {
     margin: 0;
@@ -200,11 +200,6 @@ main {
 .system-status.warning {
     background: #fef9e7;
     color: #f39c12;
-}
-
-.system-status.critical {
-    background: #f2dede;
-    color: #e74c3c;
 }
 
 .system-status i {
@@ -621,37 +616,347 @@ main {
 </style>
 {% endblock %}
 
-{% block admin_content %}
-<div class="admin-header">
-    <h2><i class="fas fa-tachometer-alt"></i> Dashboard</h2>
-    <div class="header-actions">
-        <div class="alert-indicator {% if alerts %}alert-active{% endif %}">
-            <i class="fas fa-bell"></i>
-            {% if alerts %}
-                <span class="alert-count">{{ alerts|length }}</span>
+{% block content %}
+<!-- Debug info visible during development -->
+<div class="debug-section" id="debugSection">
+    <h4>Debug Info</h4>
+    <p>Admin User: {{ admin_user.email }}</p>
+    <p>Stats: {{ stats }}</p>
+    <p>Security Metrics: {{ security_metrics }}</p>
+    <p>System Status: {{ system_status }}</p>
+    <p>Activities Count: {% if recent_activity %}{{ recent_activity|length }}{% else %}0{% endif %}</p>
+    <p>Alerts Count: {% if critical_alerts %}{{ critical_alerts|length }}{% else %}0{% endif %}</p>
+</div>
+<button class="debug-toggle" id="debugToggle">Show Debug</button>
+
+<div class="admin-container">
+    <div class="admin-sidebar">
+        <div class="sidebar-header">
+            <i class="fas fa-shield-alt"></i>
+            <h3>Admin Panel</h3>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="/admin/dashboard" class="active">
+                <i class="fas fa-chart-line"></i>
+                Dashboard
+            </a>
+            <a href="/admin/users">
+                <i class="fas fa-users"></i>
+                Users
+            </a>
+            <a href="/admin/logs">
+                <i class="fas fa-history"></i>
+                Activity Logs
+            </a>
+            <a href="/admin/settings">
+                <i class="fas fa-cog"></i>
+                Settings
+            </a>
+        </nav>
+    </div>
+
+    <div class="admin-main">
+        <div class="admin-header">
+            <h2>Security Dashboard</h2>
+            <div class="header-actions">
+                <div class="alert-indicator {% if critical_alerts | selectattr('acknowledged', 'equalto', false) | list | length > 0 %}alert-active{% endif %}">
+                    <i class="fas fa-bell"></i>
+                    <span class="alert-count">{{ critical_alerts | selectattr('acknowledged', 'equalto', false) | list | length }}</span>
+                </div>
+                <button class="btn-secondary" onclick="refreshStats()">
+                    <i class="fas fa-sync"></i> Refresh
+                </button>
+                <div class="date-filter">
+                    <select id="timeRange" onchange="updateStats()">
+                        <option value="today">Today</option>
+                        <option value="week">This Week</option>
+                        <option value="month">This Month</option>
+                        <option value="quarter">This Quarter</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Status Banner -->
+        <div class="system-status {{ 'normal' if system_status.status == 'Operational' else 'warning' }}">
+            <i class="fas fa-{% if system_status.status == 'Operational' %}check-circle{% else %}exclamation-triangle{% endif %}"></i>
+            <span>System Status: {{ system_status.status }}</span>
+            {% if system_status.status != 'Operational' %}
+            <button class="btn-small" onclick="showSystemDetails()">View Details</button>
             {% endif %}
         </div>
-        <div class="date-filter">
-            <select id="date-range">
-                <option value="7">Last 7 days</option>
-                <option value="30" selected>Last 30 days</option>
-                <option value="90">Last 90 days</option>
-                <option value="365">Last year</option>
-            </select>
+
+        <!-- Key Metrics Overview -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-title">Total Users</div>
+                <div class="stat-value">{{ stats.total_users }}</div>
+                <div class="stat-extra positive">+{{ stats.new_users_today }} today</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-title">Active Sessions</div>
+                <div class="stat-value">{{ stats.active_sessions }}</div>
+                <div class="stat-extra">{{ stats.total_sessions_day }} total today</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-title">Security Events (24h)</div>
+                <div class="stat-value">{{ security_metrics.unique_failed_ips_day }}</div>
+                <div class="stat-extra negative">{{ critical_alerts | selectattr('acknowledged', 'equalto', false) | list | length }} unack. alerts</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-title">Login Attempts (24h)</div>
+                <div class="stat-value">{{ stats.total_logins_day }}</div>
+                <div class="stat-extra negative">{{ stats.failed_logins_day }} failed</div>
+            </div>
+        </div>
+
+        <!-- Risk Score Overview -->
+        <div class="dashboard-section">
+            <div class="section-header">
+                <h3><i class="fas fa-exclamation-circle"></i> Risk Assessment</h3>
+                <button class="btn-small" onclick="location.href='/admin/security/risk'">View Details</button>
+            </div>
+            
+            <div class="security-grid">
+                <div class="security-card {% if security_metrics.get('overall_risk_score', 0) > 70 %}alert{% endif %}">
+                    <h4>Overall Risk Score</h4>
+                    <div class="metric-circle risk-overall">
+                        <span>{{ security_metrics.get('overall_risk_score', 0) }}</span>
+                    </div>
+                    <div class="metric-info">
+                        <p>Based on {{ security_metrics.get('risk_factors_count', 0) }} factors</p>
+                    </div>
+                </div>
+                
+                <div class="security-card {% if security_metrics.get('brute_force_risk', 0) > 60 %}alert{% endif %}">
+                    <h4>Brute Force Risk</h4>
+                    <div class="metric-circle {% if security_metrics.get('brute_force_risk', 0) > 60 %}risk-high{% elif security_metrics.get('brute_force_risk', 0) > 30 %}risk-medium{% else %}risk-low{% endif %}">
+                        <span>{{ security_metrics.get('brute_force_risk', 0) }}</span>
+                    </div>
+                    <div class="metric-info">
+                        <p>{{ security_metrics.get('blocked_ips_count', 0) }} IPs blocked</p>
+                    </div>
+                </div>
+                
+                <div class="security-card {% if security_metrics.get('account_takeover_risk', 0) > 50 %}alert{% endif %}">
+                    <h4>Account Takeover Risk</h4>
+                    <div class="metric-circle {% if security_metrics.get('account_takeover_risk', 0) > 60 %}risk-high{% elif security_metrics.get('account_takeover_risk', 0) > 30 %}risk-medium{% else %}risk-low{% endif %}">
+                        <span>{{ security_metrics.get('account_takeover_risk', 0) }}</span>
+                    </div>
+                    <div class="metric-info">
+                        <p>{{ security_metrics.get('suspicious_logins_count', 0) }} suspicious logins</p>
+                    </div>
+                </div>
+                
+                <div class="security-card {% if security_metrics.get('data_breach_risk', 0) > 40 %}alert{% endif %}">
+                    <h4>Data Breach Risk</h4>
+                    <div class="metric-circle {% if security_metrics.get('data_breach_risk', 0) > 60 %}risk-high{% elif security_metrics.get('data_breach_risk', 0) > 30 %}risk-medium{% else %}risk-low{% endif %}">
+                        <span>{{ security_metrics.get('data_breach_risk', 0) }}</span>
+                    </div>
+                    <div class="metric-info">
+                        <p>{{ security_metrics.get('unusual_access_count', 0) }} unusual access patterns</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Security Overview -->
+        <div class="dashboard-section">
+            <div class="section-header">
+                <h3><i class="fas fa-shield-alt"></i> Security Overview</h3>
+                <button class="btn-small" onclick="location.href='/admin/settings'">View All</button>
+            </div>
+            
+            <div class="security-grid">
+                <div class="security-card {% if security_metrics.get('login_failure_rate_day', 0) > 20 %}alert{% endif %}">
+                    <h4>Login Failure Rate (24h)</h4>
+                    <div class="metric-circle">
+                        <span>{{ security_metrics.get('login_failure_rate_day', 0) }}%</span>
+                    </div>
+                    <div class="metric-info">
+                        <p>{{ stats.failed_logins_day }} failures of {{ stats.total_logins_day }} attempts</p>
+                    </div>
+                </div>
+                
+                <div class="security-card">
+                    <h4>MFA Adoption Rate</h4>
+                    <div class="metric-circle">
+                        <span>{{ security_metrics.get('mfa_adoption_rate', 0) }}%</span>
+                    </div>
+                    <div class="metric-info">
+                        <p>{{ stats.active_users }} active users</p>
+                    </div>
+                </div>
+                
+                <div class="security-card">
+                    <h4>Failed Logins (Last Hour)</h4>
+                    <div class="metric-number">
+                        <span>{{ stats.failed_logins_hour }}</span>
+                    </div>
+                    <div class="metric-info">
+                        <p>{{ security_metrics.unique_failed_ips_day }} unique IPs</p>
+                    </div>
+                </div>
+                
+                <div class="security-card">
+                    <h4>Active Sessions</h4>
+                    <div class="metric-number">
+                        <span>{{ stats.active_sessions }}</span>
+                    </div>
+                    <div class="metric-info">
+                        <p>{{ stats.total_sessions_day }} total today</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="dashboard-row">
+            <!-- Chart Section -->
+            <div class="dashboard-section chart-section">
+                <div class="section-header">
+                    <h3><i class="fas fa-chart-bar"></i> Activity Analysis</h3>
+                    <div class="chart-controls">
+                        <button class="btn-small active" data-chart="userActivity">User Activity</button>
+                        <button class="btn-small" data-chart="securityIncidents">Security Incidents</button>
+                        <button class="btn-small" data-chart="geoDistribution">Geographic Distribution</button>
+                        <button class="btn-small" data-chart="resourceUsage">Resource Usage</button>
+                    </div>
+                </div>
+                
+                <div class="chart-container">
+                    <canvas id="activityChart"></canvas>
+                </div>
+            </div>
+            
+            <!-- Critical Alerts Section -->
+            <div class="dashboard-section alerts-section">
+                <div class="section-header">
+                    <h3><i class="fas fa-exclamation-triangle"></i> Critical Alerts</h3>
+                    <button class="btn-small" onclick="location.href='/admin/logs'">View All Logs</button>
+                </div>
+                
+                <div class="alerts-list">
+                    {% if critical_alerts %}
+                        {% for alert in critical_alerts %}
+                        <div class="alert-item {{ 'acknowledged' if alert.acknowledged else '' }}">
+                            <div class="alert-severity {{ alert.severity.lower() }}">{{ alert.severity }}</div>
+                            <div class="alert-content">
+                                <h4>{{ alert.message }}</h4>
+                                <p>{{ alert.details }}</p>
+                                <div class="alert-meta">
+                                    <span class="alert-time">{{ alert.timestamp }}</span>
+                                    {% if not alert.acknowledged %}
+                                    <button class="btn-small" onclick="acknowledgeAlert('{{ alert.id }}')">Acknowledge</button>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="empty-state">
+                            <i class="fas fa-check-circle"></i>
+                            <p>No critical alerts at this time.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="dashboard-row">
+            <!-- Recent Activity Section -->
+            <div class="dashboard-section activity-section">
+                <div class="section-header">
+                    <h3><i class="fas fa-history"></i> Recent Activity</h3>
+                    <button class="btn-small" onclick="location.href='/admin/logs'">View All</button>
+                </div>
+                
+                <div class="activity-list">
+                    {% if recent_activity %}
+                        {% for activity in recent_activity %}
+                        <div class="activity-item">
+                            <div class="activity-icon">
+                                <i class="fas fa-{% if 'Login' in activity.action %}sign-in-alt{% else %}cog{% endif %}"></i>
+                            </div>
+                            <div class="activity-content">
+                                <div class="activity-action">{{ activity.action }}</div>
+                                <div class="activity-details">
+                                    <span>{{ activity.user }}</span>
+                                    <span class="ip-address">{{ activity.ip_address }}</span>
+                                </div>
+                                <div class="activity-time">{{ activity.timestamp }}</div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="empty-state">
+                            <i class="fas fa-history"></i>
+                            <p>No recent activity to display.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- System Health Section -->
+            <div class="dashboard-section system-section">
+                <div class="section-header">
+                    <h3><i class="fas fa-server"></i> System Health</h3>
+                    <button class="btn-small" onclick="refreshStats()">Refresh</button>
+                </div>
+                
+                <div class="system-resources">
+                    <div class="resource-item">
+                        <div class="resource-info">
+                            <h4>CPU Usage</h4>
+                            <div class="progress-value">{{ system_status.cpu_usage }}%</div>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill admin-progress-bar" data-value="{{ system_status.cpu_usage }}"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="resource-item">
+                        <div class="resource-info">
+                            <h4>Memory Usage</h4>
+                            <div class="progress-value">{{ system_status.memory_usage }}%</div>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill admin-memory-bar" data-value="{{ system_status.memory_usage }}"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="resource-item">
+                        <div class="resource-info">
+                            <h4>Disk Usage</h4>
+                            <div class="progress-value">{{ system_status.disk_usage }}%</div>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill admin-disk-bar" data-value="{{ system_status.disk_usage }}"></div>
+                        </div>
+                    </div>
+
+                    <div class="resource-item">
+                        <div class="resource-info">
+                            <h4>API Response Time</h4>
+                            <div class="progress-value">{{ system_status.get('api_response_time', 0) }}ms</div>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill admin-api-bar" data-value="{{ system_status.get('api_response_time_percent', 0) }}"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="system-status-info">
+                    <p><strong>Last checked:</strong> {{ system_status.last_checked }}</p>
+                    <p><strong>Database size:</strong> {{ system_status.get('db_size', 'Unknown') }}</p>
+                    <p><strong>Uptime:</strong> {{ system_status.get('uptime', 'Unknown') }}</p>
+                </div>
+            </div>
         </div>
     </div>
 </div>
-
-<!-- System Status -->
-<div class="system-status {% if system_status == 'normal' %}normal{% elif system_status == 'warning' %}warning{% else %}critical{% endif %}">
-    <i class="fas fa-{% if system_status == 'normal' %}check-circle{% elif system_status == 'warning' %}exclamation-triangle{% else %}times-circle{% endif %} status-icon"></i>
-    <div class="status-details">
-        <h4>System Status: {{ system_status|title }}</h4>
-        <p>{{ status_message }}</p>
-    </div>
-</div>
-
-<!-- Rest of dashboard content -->
 {% endblock %}
 
 {% block scripts %}

@@ -4,7 +4,7 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, ceil
 from datetime import datetime, timedelta
 
 from app.database.database import get_db
@@ -494,68 +494,48 @@ async def update_security_settings(
 @router.get("/logs", response_class=HTMLResponse)
 async def admin_logs(
     request: Request,
-    page: int = Query(1, ge=1),
-    success: Optional[bool] = Query(None),
-    user_id: Optional[int] = Query(None),
-    ip_address: Optional[str] = Query(None),
-    start_date_str: Optional[str] = Query(None),
-    end_date_str: Optional[str] = Query(None),
     db: Session = Depends(get_db),
+    page: int = 1,
+    limit: int = 10,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    success: Optional[bool] = None,
+    user_id: Optional[int] = None,
+    ip_address: Optional[str] = None,
     admin_user: User = Depends(get_admin_user)
 ):
-    """Display security logs"""
-    items_per_page = 20
+    """Display the admin logs page with filtering and pagination."""
+    offset = (page - 1) * limit
     
-    # Date parsing
-    start_date = None
-    end_date = None
-    try:
-        if start_date_str:
-            start_date = datetime.fromisoformat(start_date_str)
-        if end_date_str:
-            # Add almost a full day to make the end date inclusive
-            end_date = datetime.fromisoformat(end_date_str) + timedelta(days=1, microseconds=-1)
-    except ValueError:
-         raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD.")
-
-    # Fetch filtered logs
-    logs_query = fetch_filter_logs(
-        db=db,
-        filters={
-            'start_date': start_date,
-            'end_date': end_date,
-            'success': success,
-            'user_id': user_id,
-            'ip_address': ip_address
-        }
-    ) # Returns a query object
-
+    filters = {
+        'start_date': start_date,
+        'end_date': end_date,
+        'success': success,
+        'user_id': user_id,
+        'ip_address': ip_address
+    }
+    
+    # Fetch logs with filters
+    logs_query = fetch_filter_logs(db=db, filters=filters)
+    
     total_items = logs_query.count()
-    total_pages = (total_items + items_per_page - 1) // items_per_page
-    current_page = min(max(1, page), max(1, total_pages))
-    offset = (current_page - 1) * items_per_page
+    logs = logs_query.offset(offset).limit(limit).all()
     
-    logs = logs_query.offset(offset).limit(items_per_page).all()
+    total_pages = ceil(total_items / limit)
     
-    # Fetch users for dropdown filter and convert to a dictionary
-    users_list = db.query(User.id, User.email).order_by(User.email).all()
-    users_dict = {user_id: email for user_id, email in users_list}
-
+    # Fetch all users for the filter dropdown
+    all_users = db.query(User.id, User.email).order_by(User.email).all()
+    
     return templates.TemplateResponse("admin/logs.html", {
         "request": request,
         "logs": logs,
-        "current_page": current_page,
+        "current_page": page,
         "total_pages": total_pages,
         "total_items": total_items,
-        "users": users_dict, # Pass the dictionary instead of the list
-        "filters": { # Pass current filters back to template
-            "success": success,
-            "user_id": user_id,
-            "ip_address": ip_address,
-            "start_date": start_date_str,
-            "end_date": end_date_str
-        },
-         "admin_user": admin_user
+        "limit": limit,
+        "admin_user": admin_user,  # Pass admin user info
+        "users": all_users, # Pass all users for the filter
+        "filters": filters # Pass current filters back to template
     })
 
 # Export routes

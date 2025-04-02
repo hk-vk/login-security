@@ -1,9 +1,8 @@
-{% extends "admin/admin_base.html" %}
+{% extends "base.html" %}
 
-{% block title %}Admin Users - Adaptive Login Security System{% endblock %}
+{% block title %}User Management - Admin{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', path='css/admin.css') }}">
 <style>
 /* Debug info */
 .debug-section {
@@ -47,54 +46,165 @@
     display: flex;
     gap: 8px;
 }
+
+/* User Management specific styles */
+.users-filters {
+    display: flex;
+    flex-wrap: wrap; /* Allow wrapping on smaller screens */
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    background-color: var(--card-bg);
+    border-radius: var(--border-radius);
+    margin-bottom: 1.5rem;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--border);
+}
+
+.search-box {
+    position: relative;
+    flex-grow: 1; /* Allow search to take available space */
+    min-width: 250px;
+}
+
+.search-box i {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-light);
+}
+
+.search-box input {
+    padding-left: 35px;
+}
+
+.filter-group {
+    display: flex;
+    gap: 1rem;
+}
+
+.users-table-container {
+    background-color: var(--card-bg);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+    overflow: hidden; /* Ensures border-radius clips content */
+    border: 1px solid var(--border);
+}
+
+.users-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.users-table th, .users-table td {
+    padding: 0.9rem 1.1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--light);
+    vertical-align: middle;
+}
+
+.users-table thead th {
+    background-color: var(--table-header-bg);
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.users-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.users-table tbody tr:hover {
+    background-color: var(--table-row-hover-bg);
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+}
+
+.avatar-placeholder {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background-color: var(--primary-light);
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 0.5rem;
+}
+
+/* Modal Overrides/Defaults if needed */
+.modal {
+    /* Ensure modals are hidden by default if not handled by admin.css */
+    display: none;
+    position: fixed;
+    z-index: 1050;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0,0,0,0.5);
+    align-items: center; /* Vertically center */
+    justify-content: center; /* Horizontally center */
+}
+
+.modal.show {
+    display: flex;
+}
 </style>
 {% endblock %}
 
-{% block admin_content %}
+{% block content %}
+<!-- Main Content -->
 <div class="admin-header">
-    <h2><i class="fas fa-users"></i> User Management</h2>
+    <h2>User Management</h2>
     <div class="header-actions">
-        <div class="action-buttons">
-            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createUserModal">
-                <i class="fas fa-plus"></i> New User
-            </button>
-        </div>
+        <button class="btn btn-primary" onclick="showModal('addUserModal')">
+            <i class="fas fa-plus"></i> Add User
+        </button>
     </div>
 </div>
 
-<!-- Users Table -->
-<div class="card">
-    <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="mb-0"><i class="fas fa-list"></i> Users</h5>
-        <span class="badge bg-primary">{{ total_users }} users</span>
+<!-- Search & Filters Card -->
+<div class="users-filters">
+    <div class="search-box">
+        <i class="fas fa-search"></i>
+        <input type="text" id="searchInput" class="form-control" placeholder="Search users..."
+               value="{{ search or '' }}" onkeyup="if(event.key==='Enter') applyFilters()">
     </div>
-    
-    <!-- Search & Filters -->
-    <div class="users-filters">
-        <div class="search-box">
-            <i class="fas fa-search"></i>
-            <input type="text" id="searchInput" placeholder="Search users..." 
-                   value="{{ search or '' }}" onkeyup="if(event.key==='Enter') searchUsers()">
-        </div>
-        <div class="filter-group">
-            <select id="statusFilter" onchange="searchUsers()">
-                <option value="">All Status</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-            </select>
-            <select id="roleFilter" onchange="searchUsers()">
-                <option value="">All Roles</option>
-                <option value="admin">Admin</option>
-                <option value="user">User</option>
-            </select>
-        </div>
-        <button class="btn-secondary" onclick="resetFilters()">
-            <i class="fas fa-redo"></i> Reset
-        </button>
+    <div class="filter-group">
+        <select id="statusFilter" class="form-select" onchange="applyFilters()">
+            <option value="">All Status</option>
+            <option value="active" {% if status == 'active' %}selected{% endif %}>Active</option>
+            <option value="inactive" {% if status == 'inactive' %}selected{% endif %}>Inactive</option>
+        </select>
+        <select id="roleFilter" class="form-select" onchange="applyFilters()">
+            <option value="">All Roles</option>
+            <option value="admin" {% if role == 'admin' %}selected{% endif %}>Admin</option>
+            <option value="user" {% if role == 'user' %}selected{% endif %}>User</option>
+        </select>
     </div>
+    <button class="btn btn-secondary" onclick="resetFilters()">
+        <i class="fas fa-redo"></i> Reset
+    </button>
+</div>
 
-    <!-- Users Table -->
-    <div class="users-table-container">
+<!-- Users Table Card -->
+<div class="users-table-container card">
+    <div class="card-body" style="padding: 0;"> {# Remove card-body padding if table has its own #}
         <table class="users-table">
             <thead>
                 <tr>
@@ -117,37 +227,37 @@
                             <span>{{ user.email }}</span>
                         </div>
                     </td>
-                    <td>{{ user.first_name }} {{ user.last_name }}</td>
+                    <td>{{ user.first_name or '' }} {{ user.last_name or '' }}</td>
                     <td>
                         {% if user.is_active %}
-                        <span class="badge severity-info">
-                            <i class="fas fa-check-circle"></i>Active
+                        <span class="badge bg-success">
+                            <i class="fas fa-check-circle"></i> Active
                         </span>
                         {% else %}
-                        <span class="badge severity-error">
-                            <i class="fas fa-times-circle"></i>Inactive
+                        <span class="badge bg-danger">
+                            <i class="fas fa-times-circle"></i> Inactive
                         </span>
                         {% endif %}
                     </td>
                     <td>
                         {% if user.is_superuser %}
-                        <span class="badge event-auth">
-                            <i class="fas fa-shield-alt"></i>Admin
+                        <span class="badge bg-primary">
+                            <i class="fas fa-shield-alt"></i> Admin
                         </span>
                         {% else %}
-                        <span class="badge event-user">
-                            <i class="fas fa-user"></i>User
+                        <span class="badge bg-secondary">
+                            <i class="fas fa-user"></i> User
                         </span>
                         {% endif %}
                     </td>
-                    <td>{{ user.last_login or 'Never' }}</td>
+                     <td>{{ user.last_login.strftime('%Y-%m-%d %H:%M') if user.last_login else 'Never' }}</td>
                     <td>
                         <div class="action-buttons">
-                            <button class="btn-icon" onclick="editUser('{{ user.id }}')">
+                            <button class="btn btn-icon btn-sm btn-outline-secondary" title="Edit User" onclick="editUser('{{ user.id }}')">
                                 <i class="fas fa-edit"></i>
                             </button>
-                            {% if user.id != admin_user.id %}
-                            <button class="btn-icon delete" onclick="deleteUser('{{ user.id }}')">
+                            {% if user.id != admin_user.id %} {# Prevent deleting self - Use admin_user #}
+                            <button class="btn btn-icon btn-sm btn-outline-danger" title="Delete User" onclick="deleteUser('{{ user.id }}')">
                                 <i class="fas fa-trash"></i>
                             </button>
                             {% endif %}
@@ -157,78 +267,84 @@
                 {% endfor %}
             </tbody>
         </table>
-
-        <!-- Pagination -->
-        {% if total_pages > 1 %}
-        <div class="table-footer">
-            <div class="entries-info">
-                Showing <span>{{ (current_page - 1) * 10 + 1 }}</span> to <span>{{ [current_page * 10, total_items] | min }}</span> of <span>{{ total_items }}</span> users
-            </div>
-            <div class="pagination">
-                <button class="btn-icon" onclick="window.location.href='?page={{ current_page - 1 }}{% if search %}&search={{ search }}{% endif %}'" {% if current_page <= 1 %}disabled{% endif %}>
-                    <i class="fas fa-chevron-left"></i>
-                </button>
-                <div class="page-numbers">
-                    {% for p in range(1, total_pages + 1) %}
-                        {% if p == current_page %}
-                            <button class="active">{{ p }}</button>
-                        {% elif p <= 3 or p == total_pages or p >= current_page - 1 and p <= current_page + 1 %}
-                            <button onclick="window.location.href='?page={{ p }}{% if search %}&search={{ search }}{% endif %}'">{{ p }}</button>
-                        {% elif p == 4 and total_pages > 6 %}
-                            <span>...</span>
-                        {% endif %}
-                    {% endfor %}
-                </div>
-                <button class="btn-icon" onclick="window.location.href='?page={{ current_page + 1 }}{% if search %}&search={{ search }}{% endif %}'" {% if current_page >= total_pages %}disabled{% endif %}>
-                    <i class="fas fa-chevron-right"></i>
-                </button>
-            </div>
-        </div>
-        {% endif %}
     </div>
+
+    <!-- Pagination -->
+    {% if total_pages > 1 %}
+    <div class="card-footer table-footer">
+        <div class="entries-info">
+            Showing <span>{{ (current_page - 1) * limit + 1 }}</span> to <span>{{ [current_page * limit, total_items] | min }}</span> of <span>{{ total_items }}</span> users
+        </div>
+        <div class="pagination">
+            <button class="btn btn-icon btn-sm" data-page="{{ current_page - 1 }}" {% if current_page <= 1 %}disabled{% endif %}>
+                <i class="fas fa-chevron-left"></i>
+            </button>
+            <div class="page-numbers">
+                {% for p in range(1, total_pages + 1) %}
+                    {% if p == current_page %}
+                        <button class="btn btn-sm active">{{ p }}</button>
+                    {% elif p <= 2 or p == total_pages or p >= total_pages - 1 or p >= current_page - 1 and p <= current_page + 1 %}
+                        <button class="btn btn-sm" data-page="{{ p }}">{{ p }}</button>
+                    {% elif p == 3 and current_page > 5 or p == total_pages - 2 and current_page < total_pages - 4 %}
+                        <span class="ellipsis">...</span>
+                    {% endif %}
+                {% endfor %}
+            </div>
+            <button class="btn btn-icon btn-sm" data-page="{{ current_page + 1 }}" {% if current_page >= total_pages %}disabled{% endif %}>
+                <i class="fas fa-chevron-right"></i>
+            </button>
+        </div>
+    </div>
+    {% endif %}
 </div>
 
 <!-- Edit User Modal -->
 <div class="modal" id="editUserModal">
     <div class="modal-content">
         <div class="modal-header">
-            <h3>Edit User</h3>
-            <button type="button" class="btn-icon" onclick="closeModal('editUserModal')">
-                <i class="fas fa-times"></i>
-            </button>
+            <h5 class="modal-title">Edit User</h5>
+            <button type="button" class="btn-close" onclick="closeModal('editUserModal')" aria-label="Close"></button>
         </div>
         <div class="modal-body">
             <form id="editUserForm">
                 <input type="hidden" id="userId">
-                <div class="detail-group">
-                    <label>Email</label>
-                    <input type="email" id="userEmail" required>
+                <div class="mb-3">
+                    <label for="userUsername" class="form-label">Username</label>
+                    <input type="text" class="form-control" id="userUsername" required>
                 </div>
-                <div class="detail-group">
-                    <label>First Name</label>
-                    <input type="text" id="userFirstName">
+                <div class="mb-3">
+                    <label for="userEmail" class="form-label">Email</label>
+                    <input type="email" class="form-control" id="userEmail" required>
                 </div>
-                <div class="detail-group">
-                    <label>Last Name</label>
-                    <input type="text" id="userLastName">
+                <div class="mb-3">
+                    <label for="userFirstName" class="form-label">First Name</label>
+                    <input type="text" class="form-control" id="userFirstName">
                 </div>
-                <div class="detail-group">
-                    <div class="checkbox-wrapper">
-                        <input type="checkbox" id="userActive">
-                        <label for="userActive">Active</label>
-                    </div>
+                <div class="mb-3">
+                    <label for="userLastName" class="form-label">Last Name</label>
+                    <input type="text" class="form-control" id="userLastName">
                 </div>
-                <div class="detail-group">
-                    <div class="checkbox-wrapper">
-                        <input type="checkbox" id="userAdmin">
-                        <label for="userAdmin">Admin</label>
-                    </div>
+                <div class="mb-3">
+                    <label for="userPassword" class="form-label">New Password (leave blank to keep current)</label>
+                    <input type="password" class="form-control" id="userPassword">
+                </div>
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" id="userActive">
+                    <label class="form-check-label" for="userActive">Active</label>
+                </div>
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" id="userAdmin">
+                    <label class="form-check-label" for="userAdmin">Admin</label>
+                </div>
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="userMfaEnabled">
+                    <label class="form-check-label" for="userMfaEnabled">MFA Enabled</label>
                 </div>
             </form>
         </div>
         <div class="modal-footer">
-            <button type="button" class="btn-secondary" onclick="closeModal('editUserModal')">Cancel</button>
-            <button type="button" class="btn-primary" onclick="saveUser()">Save Changes</button>
+            <button type="button" class="btn btn-secondary" onclick="closeModal('editUserModal')">Cancel</button>
+            <button type="button" class="btn btn-primary" onclick="saveUserChanges()">Save Changes</button>
         </div>
     </div>
 </div>
@@ -237,202 +353,278 @@
 <div class="modal" id="addUserModal">
     <div class="modal-content">
         <div class="modal-header">
-            <h3>Add New User</h3>
-            <button type="button" class="btn-icon" onclick="closeModal('addUserModal')">
-                <i class="fas fa-times"></i>
-            </button>
+            <h5 class="modal-title">Add New User</h5>
+            <button type="button" class="btn-close" onclick="closeModal('addUserModal')" aria-label="Close"></button>
         </div>
         <div class="modal-body">
             <form id="addUserForm">
-                <div class="detail-group">
-                    <label>Email</label>
-                    <input type="email" id="newUserEmail" required>
+                <div class="mb-3">
+                    <label for="newUsername" class="form-label">Username</label>
+                    <input type="text" class="form-control" id="newUsername" required>
                 </div>
-                <div class="detail-group">
-                    <label>Password</label>
-                    <input type="password" id="newUserPassword" required>
+                <div class="mb-3">
+                    <label for="newUserEmail" class="form-label">Email</label>
+                    <input type="email" class="form-control" id="newUserEmail" required>
                 </div>
-                <div class="detail-group">
-                    <label>First Name</label>
-                    <input type="text" id="newUserFirstName">
+                <div class="mb-3">
+                    <label for="newUserPassword" class="form-label">Password</label>
+                    <input type="password" class="form-control" id="newUserPassword" required>
                 </div>
-                <div class="detail-group">
-                    <label>Last Name</label>
-                    <input type="text" id="newUserLastName">
+                <div class="mb-3">
+                    <label for="newUserFirstName" class="form-label">First Name</label>
+                    <input type="text" class="form-control" id="newUserFirstName">
                 </div>
-                <div class="detail-group">
-                    <div class="checkbox-wrapper">
-                        <input type="checkbox" id="newUserActive" checked>
-                        <label for="newUserActive">Active</label>
-                    </div>
+                <div class="mb-3">
+                    <label for="newUserLastName" class="form-label">Last Name</label>
+                    <input type="text" class="form-control" id="newUserLastName">
                 </div>
-                <div class="detail-group">
-                    <div class="checkbox-wrapper">
-                        <input type="checkbox" id="newUserAdmin">
-                        <label for="newUserAdmin">Admin</label>
-                    </div>
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" id="newUserAdmin">
+                    <label class="form-check-label" for="newUserAdmin">Admin</label>
+                </div>
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="newUserMfaEnabled">
+                    <label class="form-check-label" for="newUserMfaEnabled">MFA Enabled</label>
                 </div>
             </form>
         </div>
         <div class="modal-footer">
-            <button type="button" class="btn-secondary" onclick="closeModal('addUserModal')">Cancel</button>
-            <button type="button" class="btn-primary" onclick="addUser()">Add User</button>
+            <button type="button" class="btn btn-secondary" onclick="closeModal('addUserModal')">Cancel</button>
+            <button type="button" class="btn btn-primary" onclick="addUser()">Add User</button>
         </div>
     </div>
 </div>
 
+{% endblock %}
+
+{% block extra_js %}
 <script>
-function closeModal(modalId) {
-    document.getElementById(modalId).style.display = 'none';
+// --- Function Definitions ---
+function showModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.classList.add('show');
+    }
 }
 
-function searchUsers() {
-    let searchValue = document.getElementById('searchInput').value;
-    let statusFilter = document.getElementById('statusFilter').value;
-    let roleFilter = document.getElementById('roleFilter').value;
-    
-    let url = '/admin/users?';
-    if (searchValue) url += `search=${encodeURIComponent(searchValue)}&`;
-    if (statusFilter) url += `status=${encodeURIComponent(statusFilter)}&`;
-    if (roleFilter) url += `role=${encodeURIComponent(roleFilter)}&`;
-    
-    window.location.href = url;
+function closeModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.classList.remove('show');
+    }
+}
+
+function applyFilters() {
+    const search = document.getElementById('searchInput').value;
+    const status = document.getElementById('statusFilter').value;
+    const role = document.getElementById('roleFilter').value;
+    const urlParams = new URLSearchParams(window.location.search);
+
+    if (search) urlParams.set('search', search); else urlParams.delete('search');
+    if (status) urlParams.set('status', status); else urlParams.delete('status');
+    if (role) urlParams.set('role', role); else urlParams.delete('role');
+    urlParams.set('page', 1); // Reset to page 1 when filters change
+
+    window.location.href = `/admin/users?${urlParams.toString()}`;
 }
 
 function resetFilters() {
-    document.getElementById('searchInput').value = '';
-    document.getElementById('statusFilter').value = '';
-    document.getElementById('roleFilter').value = '';
     window.location.href = '/admin/users';
 }
 
+function changePage(page) {
+    const urlParams = new URLSearchParams(window.location.search);
+    urlParams.set('page', page);
+    window.location.href = `/admin/users?${urlParams.toString()}`;
+}
+
 function editUser(userId) {
-    // Fetch user data and populate modal
     fetch(`/admin/users/${userId}`)
         .then(response => {
             if (!response.ok) {
-                throw new Error(`HTTP error! Status: ${response.status}`);
+                throw new Error(`HTTP error! status: ${response.status}`);
             }
             return response.json();
         })
         .then(user => {
+            if (!user) {
+                 alert('User data not found.');
+                 return;
+            }
             document.getElementById('userId').value = user.id;
+            document.getElementById('userUsername').value = user.username;
             document.getElementById('userEmail').value = user.email;
             document.getElementById('userFirstName').value = user.first_name || '';
             document.getElementById('userLastName').value = user.last_name || '';
             document.getElementById('userActive').checked = user.is_active;
             document.getElementById('userAdmin').checked = user.is_superuser;
-            
-            // Show modal
-            document.getElementById('editUserModal').style.display = 'flex';
+            document.getElementById('userMfaEnabled').checked = user.mfa_enabled;
+            document.getElementById('userPassword').value = ''; // Clear password field
+            showModal('editUserModal');
         })
         .catch(error => {
             console.error('Error fetching user:', error);
-            alert('Failed to load user details. Please try again.');
+            alert('Error loading user data. ' + error.message);
         });
 }
 
-function saveUser() {
+function saveUserChanges() {
     const userId = document.getElementById('userId').value;
     const data = {
+        username: document.getElementById('userUsername').value,
         email: document.getElementById('userEmail').value,
         first_name: document.getElementById('userFirstName').value,
         last_name: document.getElementById('userLastName').value,
         is_active: document.getElementById('userActive').checked,
-        is_superuser: document.getElementById('userAdmin').checked
+        is_superuser: document.getElementById('userAdmin').checked,
+        mfa_enabled: document.getElementById('userMfaEnabled').checked
     };
+    const password = document.getElementById('userPassword').value;
+    if (password && password.trim() !== '') {
+        data.password = password;
+    }
 
     fetch(`/admin/users/${userId}`, {
         method: 'PUT',
-        headers: {
-            'Content-Type': 'application/json',
-        },
+        headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(data)
     })
     .then(response => {
-        if (!response.ok) {
-            return response.json().then(errData => {
-                throw new Error(errData.detail || `HTTP error! Status: ${response.status}`);
+         if (!response.ok) {
+            // Try to parse error message from backend
+            return response.json().then(err => { 
+                throw new Error(err.detail || `Server error: ${response.status}`)
             });
         }
         return response.json();
     })
     .then(result => {
         if (result.success) {
-            location.reload();
+            closeModal('editUserModal');
+            location.reload(); // Simple reload for now
         } else {
-            alert('Failed to update user: ' + result.message);
+            // Use message from backend if available
+            alert('Error updating user: ' + (result.message || 'Unknown error'));
         }
     })
     .catch(error => {
-        console.error('Error:', error);
-        alert('Error updating user: ' + error.message);
-    });
-}
-
-function addUser() {
-    const data = {
-        email: document.getElementById('newUserEmail').value,
-        password: document.getElementById('newUserPassword').value,
-        first_name: document.getElementById('newUserFirstName').value,
-        last_name: document.getElementById('newUserLastName').value,
-        is_active: document.getElementById('newUserActive').checked,
-        is_superuser: document.getElementById('newUserAdmin').checked
-    };
-
-    fetch(`/admin/users`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data)
-    })
-    .then(response => {
-        if (!response.ok) {
-            return response.json().then(errData => {
-                throw new Error(errData.detail || `HTTP error! Status: ${response.status}`);
-            });
-        }
-        return response.json();
-    })
-    .then(result => {
-        if (result.success) {
-            location.reload();
-        } else {
-            alert('Failed to add user: ' + result.message);
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('Error adding user: ' + error.message);
+        console.error('Error updating user:', error);
+         alert('An error occurred while updating the user: ' + error.message);
     });
 }
 
 function deleteUser(userId) {
-    if (confirm('Are you sure you want to delete this user?')) {
+    if (confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
         fetch(`/admin/users/${userId}`, {
             method: 'DELETE'
         })
         .then(response => {
-            if (!response.ok) {
-                return response.json().then(errData => {
-                    throw new Error(errData.detail || `HTTP error! Status: ${response.status}`);
+             if (!response.ok) {
+                return response.json().then(err => { 
+                    throw new Error(err.detail || `Server error: ${response.status}`)
                 });
             }
             return response.json();
         })
         .then(result => {
             if (result.success) {
-                location.reload();
+                location.reload(); // Simple reload for now
             } else {
-                alert('Failed to delete user: ' + result.message);
+                alert('Error deleting user: ' + (result.message || 'Unknown error'));
             }
         })
         .catch(error => {
-            console.error('Error:', error);
-            alert('Error deleting user: ' + error.message);
+            console.error('Error deleting user:', error);
+             alert('An error occurred while deleting the user: ' + error.message);
         });
     }
 }
+
+function addUser() {
+    const data = {
+        username: document.getElementById('newUsername').value,
+        email: document.getElementById('newUserEmail').value,
+        password: document.getElementById('newUserPassword').value,
+        first_name: document.getElementById('newUserFirstName').value,
+        last_name: document.getElementById('newUserLastName').value,
+        is_superuser: document.getElementById('newUserAdmin').checked,
+        mfa_enabled: document.getElementById('newUserMfaEnabled').checked,
+        is_active: true // New users are active by default
+    };
+
+    // Basic validation
+    if (!data.username || !data.email || !data.password) {
+        alert('Username, Email, and Password are required.');
+        return;
+    }
+
+    fetch('/admin/users/', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    })
+    .then(response => {
+         if (!response.ok) {
+            return response.json().then(err => { 
+                throw new Error(err.detail || `Server error: ${response.status}`)
+            });
+        }
+        return response.json();
+    })
+    .then(result => {
+        if (result.success) {
+            closeModal('addUserModal');
+            location.reload(); // Simple reload for now
+        } else {
+            alert('Error adding user: ' + (result.message || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error adding user:', error);
+        alert('An error occurred while adding the user: ' + error.message);
+    });
+}
+
+// --- Event Listeners Setup ---
+document.addEventListener('DOMContentLoaded', function() {
+
+    // Add event listener for clicks outside the modal content to close
+    document.addEventListener('click', function(event) {
+        const modals = document.querySelectorAll('.modal.show');
+        modals.forEach(modal => {
+            const modalContent = modal.querySelector('.modal-content');
+            // Check if the click target is the modal backdrop itself
+            if (modalContent && event.target === modal) {
+                 closeModal(modal.id);
+            }
+        });
+    });
+
+    // Add event listeners for pagination buttons
+    document.querySelectorAll('.pagination button[data-page]').forEach(button => {
+        button.addEventListener('click', function() {
+            if (!this.disabled) {
+                changePage(parseInt(this.dataset.page));
+            }
+        });
+    });
+
+    // Initialize filters from URL params on load
+    const urlParams = new URLSearchParams(window.location.search);
+    const statusFilter = document.getElementById('statusFilter');
+    const roleFilter = document.getElementById('roleFilter');
+    const searchInput = document.getElementById('searchInput');
+
+    if (urlParams.has('status') && statusFilter) {
+        statusFilter.value = urlParams.get('status');
+    }
+    if (urlParams.has('role') && roleFilter) {
+        roleFilter.value = urlParams.get('role');
+    }
+     if (urlParams.has('search') && searchInput) {
+        searchInput.value = urlParams.get('search');
+    }
+});
+
 </script>
 {% endblock %} 

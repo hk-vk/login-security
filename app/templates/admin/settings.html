@@ -1,506 +1,641 @@
 {% extends "base.html" %}
 
+{% block title %}Admin Settings - Adaptive Login Security System{% endblock %}
+
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', path='css/admin.css') }}">
 <style>
-/* Debug info */
+/* Settings specific styles - can remain if needed */
+.settings-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 1.5rem;
+}
+
+.settings-card {
+    background-color: var(--card-bg);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    border: 1px solid var(--border);
+}
+
+.card-header {
+    background: linear-gradient(to bottom, #f8fafc, #f1f5f9);
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.card-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--dark);
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.card-header i {
+    color: var(--primary);
+}
+
+.card-body {
+    padding: 1.25rem;
+}
+
+.setting-item {
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* Adjust as needed */
+    gap: 1rem;
+    padding: 1rem 0;
+    border-bottom: 1px solid var(--light);
+}
+
+.setting-item:last-child {
+    border-bottom: none;
+}
+
+.setting-info label {
+    font-weight: 500;
+    color: var(--text);
+    display: block;
+    margin-bottom: 0.25rem;
+}
+
+.setting-info p {
+    font-size: 0.9rem;
+    color: var(--text-light);
+    margin: 0;
+}
+
+.setting-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    justify-content: center;
+}
+
+.form-group {
+    margin-bottom: 0; /* Remove default bottom margin */
+}
+
+.form-group label {
+    font-size: 0.9rem;
+    font-weight: 500;
+    margin-bottom: 0.35rem;
+    display: block;
+}
+
+.form-group.inline-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.form-group.inline-group label {
+    margin-bottom: 0;
+    white-space: nowrap;
+}
+
+.input-suffix {
+    display: flex;
+    align-items: center;
+}
+
+.input-suffix input {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+    flex-grow: 1;
+}
+
+.input-suffix span {
+    padding: 0.75rem 1rem;
+    background-color: var(--light);
+    border: 1px solid var(--border);
+    border-left: 0;
+    border-top-right-radius: var(--border-radius);
+    border-bottom-right-radius: var(--border-radius);
+    font-size: 0.95rem;
+    color: var(--text-light);
+}
+
+.checkbox-group, .radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.checkbox-label, .radio-label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    font-size: 0.95rem;
+}
+
+.checkbox-label input, .radio-label input {
+    margin-right: 0.5rem;
+}
+
+/* Toggle Switch */
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 26px;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-switch label {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+    border-radius: 34px;
+}
+
+.toggle-switch label:before {
+    position: absolute;
+    content: "";
+    height: 20px;
+    width: 20px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+.toggle-switch input:checked + label {
+    background-color: var(--primary);
+}
+
+.toggle-switch input:checked + label:before {
+    transform: translateX(24px);
+}
+
+.toggle-switch.with-label {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.toggle-switch.with-label span {
+    font-size: 0.95rem;
+}
+
+.form-row {
+    display: flex;
+    gap: 1rem;
+}
+
+.form-group.half {
+    flex: 1;
+}
+
+/* Debug Styling */
 .debug-section {
     position: fixed;
     bottom: 0;
     left: 0;
     right: 0;
-    background: rgba(0,0,0,0.8);
-    color: #fff;
-    padding: 10px;
+    background: rgba(0,0,0,0.85);
+    color: lime;
+    padding: 15px;
     font-family: monospace;
     z-index: 10000;
-    max-height: 200px;
+    max-height: 250px;
     overflow: auto;
-    display: none; /* Hide by default */
+    display: none; /* Hidden by default */
+    border-top: 2px solid var(--primary);
 }
 .debug-toggle {
     position: fixed;
-    bottom: 10px;
-    right: 10px;
-    background: rgba(0,0,0,0.5);
+    bottom: 15px;
+    right: 15px;
+    background: var(--primary);
     color: white;
     border: none;
-    border-radius: 4px;
-    padding: 5px 10px;
-    font-size: 12px;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    font-size: 1.5rem;
     cursor: pointer;
     z-index: 10001;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    transition: var(--transition);
 }
 .debug-toggle:hover {
-    background: rgba(0,0,0,0.7);
+    background: var(--primary-dark);
+    transform: scale(1.1);
 }
+
 </style>
 {% endblock %}
 
 {% block content %}
-<!-- Debug info visible during development -->
+<!-- Debug info toggle button -->
+<button class="debug-toggle" id="debugToggle" onclick="toggleDebug()"><i class="fas fa-bug"></i></button>
+
+<!-- Main Content (Structure provided by base.html) -->
+<div class="admin-header">
+    <h2>System Settings</h2>
+    <div class="header-actions">
+        <button class="btn-secondary" id="testEmailButton" onclick="testEmailSettings()" disabled>
+            <i class="fas fa-paper-plane"></i> Test Email
+        </button>
+        <button class="btn-primary" onclick="saveAllSettings()">
+            <i class="fas fa-save"></i> Save All Changes
+        </button>
+    </div>
+</div>
+
+<div class="settings-container" id="settingsForm">
+    <!-- Account Security Settings -->
+    <div class="settings-card">
+        <div class="card-header">
+            <h3><i class="fas fa-lock"></i> Account Security</h3>
+        </div>
+        <div class="card-body">
+            <div class="setting-item">
+                <div class="setting-info">
+                    <label for="minPasswordLength">Password Requirements</label>
+                    <p>Set minimum requirements for user passwords.</p>
+                </div>
+                <div class="setting-controls">
+                    <div class="form-group">
+                        <label for="minPasswordLength">Minimum Length</label>
+                        <input type="number" id="minPasswordLength" name="password_min_length" value="{{ settings.password_min_length or 8 }}" min="6" max="32">
+                    </div>
+                    <div class="form-group">
+                        <label>Required Character Types</label>
+                        <div class="checkbox-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="requireUppercase" name="password_require_uppercase" {% if settings.password_require_uppercase %}checked{% endif %}> Uppercase
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="requireLowercase" name="password_require_lowercase" {% if settings.password_require_lowercase %}checked{% endif %}> Lowercase
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="requireNumbers" name="password_require_digit" {% if settings.password_require_digit %}checked{% endif %}> Numbers
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="requireSpecial" name="password_require_special" {% if settings.password_require_special %}checked{% endif %}> Special Characters
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="setting-item">
+                <div class="setting-info">
+                    <label>Account Lockout</label>
+                    <p>Lock accounts after failed login attempts.</p>
+                </div>
+                <div class="setting-controls">
+                    <div class="toggle-switch with-label">
+                         <input type="checkbox" id="enableLockout" name="account_lockout_enabled" {% if settings.account_lockout_enabled %}checked{% endif %}>
+                         <label for="enableLockout"></label>
+                         <span>Enable Account Lockout</span>
+                    </div>
+                    <div class="form-group inline-group">
+                        <label for="maxLoginAttempts">Max Attempts</label>
+                        <input type="number" id="maxLoginAttempts" name="account_lockout_threshold" value="{{ settings.account_lockout_threshold or 5 }}" min="3" max="20">
+                    </div>
+                    <div class="form-group inline-group">
+                        <label for="lockoutDuration">Lockout Duration</label>
+                        <div class="input-suffix">
+                            <input type="number" id="lockoutDuration" name="account_lockout_duration_minutes" value="{{ settings.account_lockout_duration_minutes or 30 }}" min="5" max="1440">
+                            <span>minutes</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Authentication Settings -->
+    <div class="settings-card">
+        <div class="card-header">
+            <h3><i class="fas fa-user-shield"></i> Authentication</h3>
+        </div>
+        <div class="card-body">
+            <div class="setting-item">
+                <div class="setting-info">
+                    <label>Multi-Factor Authentication (MFA)</label>
+                    <p>Define MFA policy for user logins.</p>
+                </div>
+                <div class="setting-controls">
+                    <div class="radio-group">
+                        <label class="radio-label">
+                            <input type="radio" name="mfa_policy" value="optional" {% if settings.mfa_policy == 'optional' %}checked{% endif %}> Optional
+                        </label>
+                        <label class="radio-label">
+                            <input type="radio" name="mfa_policy" value="admins" {% if settings.mfa_policy == 'admins' %}checked{% endif %}> Required for Admins
+                        </label>
+                        <label class="radio-label">
+                            <input type="radio" name="mfa_policy" value="all" {% if settings.mfa_policy == 'all' %}checked{% endif %}> Required for All Users
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="setting-item">
+                <div class="setting-info">
+                    <label>CAPTCHA Protection</label>
+                    <p>Apply CAPTCHA challenges on forms.</p>
+                </div>
+                <div class="setting-controls">
+                    <div class="checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="enableLoginCaptcha" name="captcha_on_login" {% if settings.captcha_on_login %}checked{% endif %}> Login Form
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="enableRegisterCaptcha" name="captcha_on_registration" {% if settings.captcha_on_registration %}checked{% endif %}> Registration Form
+                        </label>
+                         <label class="checkbox-label">
+                            <input type="checkbox" id="enableResetCaptcha" name="captcha_on_password_reset" {% if settings.captcha_on_password_reset %}checked{% endif %}> Password Reset
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="setting-item">
+                <div class="setting-info">
+                    <label>Session Management</label>
+                    <p>Configure user session behavior.</p>
+                </div>
+                <div class="setting-controls">
+                    <div class="form-group">
+                        <label for="sessionTimeout">Session Timeout</label>
+                        <div class="input-suffix">
+                            <input type="number" id="sessionTimeout" name="session_timeout_minutes" value="{{ settings.session_timeout_minutes or 30 }}" min="5" max="1440">
+                            <span>minutes</span>
+                        </div>
+                    </div>
+                    <div class="toggle-switch with-label">
+                        <input type="checkbox" id="enforceSingleSession" name="session_limit_per_user" {% if settings.session_limit_per_user %}checked{% endif %}>
+                        <label for="enforceSingleSession"></label>
+                        <span>Limit to one active session per user</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Email Settings -->
+    <div class="settings-card">
+        <div class="card-header">
+            <h3><i class="fas fa-envelope"></i> Email Configuration</h3>
+        </div>
+        <div class="card-body">
+            <div class="setting-item">
+                <div class="setting-info">
+                    <label>SMTP Server Details</label>
+                    <p>Configure the outgoing mail server.</p>
+                </div>
+                <div class="setting-controls">
+                    <div class="form-group">
+                        <label for="smtpServer">SMTP Server Host</label>
+                        <input type="text" id="smtpServer" name="smtp_server" value="{{ settings.smtp_server or '' }}" oninput="checkEmailConfig()">
+                    </div>
+                    <div class="form-group">
+                        <label for="smtpPort">SMTP Port</label>
+                        <input type="number" id="smtpPort" name="smtp_port" value="{{ settings.smtp_port or 587 }}" oninput="checkEmailConfig()">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group half">
+                            <label for="smtpUsername">Username</label>
+                            <input type="text" id="smtpUsername" name="smtp_username" value="{{ settings.smtp_username or '' }}" oninput="checkEmailConfig()">
+                        </div>
+                        <div class="form-group half">
+                            <label for="smtpPassword">Password</label>
+                            <input type="password" id="smtpPassword" name="smtp_password" placeholder="Enter password or leave blank">
+                        </div>
+                    </div>
+                    <div class="toggle-switch with-label">
+                        <input type="checkbox" id="smtpTls" name="smtp_use_tls" {% if settings.smtp_use_tls %}checked{% endif %}>
+                        <label for="smtpTls"></label>
+                        <span>Use TLS Encryption</span>
+                    </div>
+                </div>
+            </div>
+             <div class="setting-item">
+                <div class="setting-info">
+                    <label for="emailSender">Sender Information</label>
+                    <p>Email address and name used for sending emails.</p>
+                </div>
+                <div class="setting-controls">
+                     <div class="form-group">
+                        <label for="emailSenderAddress">Sender Email Address</label>
+                        <input type="email" id="emailSenderAddress" name="email_from_address" value="{{ settings.email_from_address or '' }}" oninput="checkEmailConfig()">
+                    </div>
+                     <div class="form-group">
+                        <label for="emailSenderName">Sender Name</label>
+                        <input type="text" id="emailSenderName" name="email_from_name" value="{{ settings.email_from_name or 'System Notifications' }}">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Logging & Monitoring -->
+    <div class="settings-card">
+        <div class="card-header">
+            <h3><i class="fas fa-clipboard-list"></i> Logging & Monitoring</h3>
+        </div>
+        <div class="card-body">
+            <div class="setting-item">
+                <div class="setting-info">
+                    <label>Log Retention</label>
+                    <p>Define how long activity logs are kept.</p>
+                </div>
+                <div class="setting-controls">
+                     <div class="form-group">
+                        <label for="logRetentionDays">Retention Period</label>
+                        <div class="input-suffix">
+                            <input type="number" id="logRetentionDays" name="log_retention_days" value="{{ settings.log_retention_days or 90 }}" min="7" max="3650">
+                            <span>days</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+             <div class="setting-item">
+                <div class="setting-info">
+                    <label>Admin Notifications</label>
+                    <p>Receive email alerts for critical events.</p>
+                </div>
+                <div class="setting-controls">
+                     <div class="toggle-switch with-label">
+                        <input type="checkbox" id="notifyAdminOnLockout" name="notify_admin_on_lockout" {% if settings.notify_admin_on_lockout %}checked{% endif %}>
+                        <label for="notifyAdminOnLockout"></label>
+                        <span>Notify on Account Lockout</span>
+                    </div>
+                     <div class="toggle-switch with-label">
+                        <input type="checkbox" id="notifyAdminOnHighRisk" name="notify_admin_on_high_risk_login" {% if settings.notify_admin_on_high_risk_login %}checked{% endif %}>
+                        <label for="notifyAdminOnHighRisk"></label>
+                        <span>Notify on High-Risk Login</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="adminNotificationEmail">Notification Email</label>
+                        <input type="email" id="adminNotificationEmail" name="admin_notification_email" value="{{ settings.admin_notification_email or '' }}" placeholder="admin@example.com">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Debug info output section -->
 <div class="debug-section" id="debugSection">
     <h4>Debug Info</h4>
-    <p>Current User: {{ admin_user.id }} - {{ admin_user.email }}</p>
-    <p>Settings Last Updated: {{ settings.updated_at }}</p>
-    <p>Last Updated By: {{ settings.last_updated_by }}</p>
-</div>
-<button class="debug-toggle" id="debugToggle">Show Debug</button>
-
-<div class="admin-container">
-    <div class="admin-sidebar">
-        <div class="sidebar-header">
-            <i class="fas fa-shield-alt"></i>
-            <h3>Admin Panel</h3>
-        </div>
-        <nav class="sidebar-nav">
-            <a href="/admin/dashboard">
-                <i class="fas fa-chart-line"></i>
-                Dashboard
-            </a>
-            <a href="/admin/users">
-                <i class="fas fa-users"></i>
-                Users
-            </a>
-            <a href="/admin/logs">
-                <i class="fas fa-history"></i>
-                Activity Logs
-            </a>
-            <a href="/admin/settings" class="active">
-                <i class="fas fa-cog"></i>
-                Settings
-            </a>
-            <a href="/admin/maintenance">
-                <i class="fas fa-tools"></i>
-                Maintenance
-            </a>
-        </nav>
-    </div>
-
-    <div class="admin-main">
-        <div class="admin-header">
-            <h2>System Settings</h2>
-            <div class="header-actions">
-                <button class="btn-primary" onclick="saveAllSettings()">
-                    <i class="fas fa-save"></i>
-                    Save All Changes
-                </button>
-            </div>
-        </div>
-
-        <div class="settings-container">
-            <!-- Account Security Settings -->
-            <div class="settings-card">
-                <div class="card-header">
-                    <h3><i class="fas fa-lock"></i> Account Security</h3>
-                </div>
-                <div class="card-body">
-                    <div class="setting-item">
-                        <div class="setting-info">
-                            <label>Password Requirements</label>
-                            <p>Set minimum requirements for user passwords</p>
-                        </div>
-                        <div class="setting-controls">
-                            <div class="form-group">
-                                <label>Minimum Length</label>
-                                <input type="number" id="minPasswordLength" value="8" min="6" max="24">
-                            </div>
-                            <div class="form-group">
-                                <label>Required Character Types</label>
-                                <div class="checkbox-group">
-                                    <label class="checkbox-label">
-                                        <input type="checkbox" checked id="requireUppercase"> Uppercase
-                                    </label>
-                                    <label class="checkbox-label">
-                                        <input type="checkbox" checked id="requireLowercase"> Lowercase
-                                    </label>
-                                    <label class="checkbox-label">
-                                        <input type="checkbox" checked id="requireNumbers"> Numbers
-                                    </label>
-                                    <label class="checkbox-label">
-                                        <input type="checkbox" checked id="requireSpecial"> Special Characters
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="setting-item">
-                        <div class="setting-info">
-                            <label>Account Lockout</label>
-                            <p>Lock accounts after failed login attempts</p>
-                        </div>
-                        <div class="setting-controls">
-                            <div class="toggle-switch">
-                                <input type="checkbox" id="enableLockout" checked>
-                                <label for="enableLockout"></label>
-                            </div>
-                            <div class="form-group inline-group">
-                                <label>Max Attempts</label>
-                                <input type="number" id="maxLoginAttempts" value="5" min="3" max="10">
-                            </div>
-                            <div class="form-group inline-group">
-                                <label>Lockout Duration</label>
-                                <div class="input-suffix">
-                                    <input type="number" id="lockoutDuration" value="30" min="5">
-                                    <span>minutes</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Authentication Settings -->
-            <div class="settings-card">
-                <div class="card-header">
-                    <h3><i class="fas fa-user-shield"></i> Authentication</h3>
-                </div>
-                <div class="card-body">
-                    <div class="setting-item">
-                        <div class="setting-info">
-                            <label>Multi-Factor Authentication</label>
-                            <p>Enable MFA requirements for users</p>
-                        </div>
-                        <div class="setting-controls">
-                            <div class="radio-group">
-                                <label class="radio-label">
-                                    <input type="radio" name="mfaPolicy" value="optional" checked> Optional
-                                </label>
-                                <label class="radio-label">
-                                    <input type="radio" name="mfaPolicy" value="admins"> Required for Admins
-                                </label>
-                                <label class="radio-label">
-                                    <input type="radio" name="mfaPolicy" value="all"> Required for All Users
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="setting-item">
-                        <div class="setting-info">
-                            <label>CAPTCHA Protection</label>
-                            <p>Apply CAPTCHA to prevent automated attacks</p>
-                        </div>
-                        <div class="setting-controls">
-                            <div class="checkbox-group">
-                                <label class="checkbox-label">
-                                    <input type="checkbox" checked id="enableLoginCaptcha"> Login Form
-                                </label>
-                                <label class="checkbox-label">
-                                    <input type="checkbox" checked id="enableRegisterCaptcha"> Registration Form
-                                </label>
-                                <label class="checkbox-label">
-                                    <input type="checkbox" checked id="enableResetCaptcha"> Password Reset
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="setting-item">
-                        <div class="setting-info">
-                            <label>Session Management</label>
-                            <p>Configure user session settings</p>
-                        </div>
-                        <div class="setting-controls">
-                            <div class="form-group">
-                                <label>Session Timeout</label>
-                                <div class="input-suffix">
-                                    <input type="number" id="sessionTimeout" value="30" min="5" max="1440">
-                                    <span>minutes</span>
-                                </div>
-                            </div>
-                            <div class="toggle-switch with-label">
-                                <input type="checkbox" id="enforceSingleSession" checked>
-                                <label for="enforceSingleSession"></label>
-                                <span>Limit to one active session per user</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Email Settings -->
-            <div class="settings-card">
-                <div class="card-header">
-                    <h3><i class="fas fa-envelope"></i> Email Configuration</h3>
-                </div>
-                <div class="card-body">
-                    <div class="setting-item">
-                        <div class="setting-info">
-                            <label>SMTP Settings</label>
-                            <p>Configure outgoing email service</p>
-                        </div>
-                        <div class="setting-controls">
-                            <div class="form-group">
-                                <label>SMTP Server</label>
-                                <input type="text" id="smtpServer" value="smtp.example.com">
-                            </div>
-                            <div class="form-group">
-                                <label>SMTP Port</label>
-                                <input type="number" id="smtpPort" value="587">
-                            </div>
-                            <div class="form-row">
-                                <div class="form-group half">
-                                    <label>Username</label>
-                                    <input type="text" id="smtpUsername" value="notifications@example.com">
-                                </div>
-                                <div class="form-group half">
-                                    <label>Password</label>
-                                    <input type="password" id="smtpPassword" value="••••••••">
-                                </div>
-                            </div>
-                            <div class="toggle-switch with-label">
-                                <input type="checkbox" id="enableTLS" checked>
-                                <label for="enableTLS"></label>
-                                <span>Use TLS encryption</span>
-                            </div>
-                            <button class="btn-secondary" onclick="testEmailSettings()">
-                                <i class="fas fa-paper-plane"></i>
-                                Test Connection
-                            </button>
-                        </div>
-                    </div>
-                    <div class="setting-item">
-                        <div class="setting-info">
-                            <label>Email Notifications</label>
-                            <p>Configure system notification emails</p>
-                        </div>
-                        <div class="setting-controls">
-                            <div class="checkbox-group">
-                                <label class="checkbox-label">
-                                    <input type="checkbox" checked id="notifyRegistration"> New User Registrations
-                                </label>
-                                <label class="checkbox-label">
-                                    <input type="checkbox" checked id="notifyFailedLogins"> Failed Login Attempts
-                                </label>
-                                <label class="checkbox-label">
-                                    <input type="checkbox" checked id="notifyPasswordResets"> Password Resets
-                                </label>
-                                <label class="checkbox-label">
-                                    <input type="checkbox" id="notifySystemErrors"> System Errors
-                                </label>
-                            </div>
-                            <div class="form-group">
-                                <label>Admin Notification Email</label>
-                                <input type="email" id="adminEmail" value="admin@example.com">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- System Settings -->
-            <div class="settings-card">
-                <div class="card-header">
-                    <h3><i class="fas fa-cogs"></i> System</h3>
-                </div>
-                <div class="card-body">
-                    <div class="setting-item">
-                        <div class="setting-info">
-                            <label>Logging</label>
-                            <p>Configure system logging settings</p>
-                        </div>
-                        <div class="setting-controls">
-                            <div class="form-group">
-                                <label>Log Level</label>
-                                <select id="logLevel">
-                                    <option>Debug</option>
-                                    <option selected>Info</option>
-                                    <option>Warning</option>
-                                    <option>Error</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label>Log Retention</label>
-                                <div class="input-suffix">
-                                    <input type="number" id="logRetention" value="30" min="7" max="365">
-                                    <span>days</span>
-                                </div>
-                            </div>
-                            <div class="toggle-switch with-label">
-                                <input type="checkbox" id="enableAuditLog" checked>
-                                <label for="enableAuditLog"></label>
-                                <span>Enable detailed audit logging</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="setting-item">
-                        <div class="setting-info">
-                            <label>Registration</label>
-                            <p>Control user registration settings</p>
-                        </div>
-                        <div class="setting-controls">
-                            <div class="toggle-switch with-label">
-                                <input type="checkbox" id="allowRegistration" checked>
-                                <label for="allowRegistration"></label>
-                                <span>Allow new user registration</span>
-                            </div>
-                            <div class="toggle-switch with-label">
-                                <input type="checkbox" id="requireEmailVerification" checked>
-                                <label for="requireEmailVerification"></label>
-                                <span>Require email verification</span>
-                            </div>
-                            <div class="toggle-switch with-label">
-                                <input type="checkbox" id="requireAdminApproval">
-                                <label for="requireAdminApproval"></label>
-                                <span>Require admin approval for new accounts</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="setting-item">
-                        <div class="setting-info">
-                            <label>Maintenance Mode</label>
-                            <p>Take the system offline for maintenance</p>
-                        </div>
-                        <div class="setting-controls">
-                            <div class="toggle-switch with-label">
-                                <input type="checkbox" id="maintenanceMode">
-                                <label for="maintenanceMode"></label>
-                                <span>Enable maintenance mode</span>
-                            </div>
-                            <div class="form-group">
-                                <label>Maintenance Message</label>
-                                <textarea id="maintenanceMessage" rows="3">The system is currently undergoing scheduled maintenance. Please try again later.</textarea>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+    <pre id="debugOutput">Settings will appear here on save/load.</pre>
 </div>
 
+{% endblock %}
+
+{% block extra_js %}
 <script>
-// Toggle debug section
-document.getElementById('debugToggle').addEventListener('click', function() {
-    const debugSection = document.getElementById('debugSection');
-    if (debugSection.style.display === 'none' || !debugSection.style.display) {
-        debugSection.style.display = 'block';
-        this.textContent = 'Hide Debug';
-    } else {
-        debugSection.style.display = 'none';
-        this.textContent = 'Show Debug';
-    }
-});
-
-// Save all settings
 function saveAllSettings() {
-    // Get form data for all settings sections
-    const formData = {
-        // Password policy
-        password_min_length: parseInt(document.getElementById('minPasswordLength').value),
-        password_require_uppercase: document.getElementById('requireUppercase').checked,
-        password_require_lowercase: document.getElementById('requireLowercase').checked,
-        password_require_digits: document.getElementById('requireNumbers').checked,
-        password_require_special: document.getElementById('requireSpecial').checked,
-        password_expiry_days: parseInt(document.getElementById('passwordExpiryDays').value),
-        password_history_count: parseInt(document.getElementById('passwordHistoryCount').value),
-        
-        // Account lockout
-        max_login_attempts: parseInt(document.getElementById('maxLoginAttempts').value),
-        lockout_duration_minutes: parseInt(document.getElementById('lockoutDuration').value),
-        
-        // MFA
-        require_mfa: document.querySelector('input[name="mfaPolicy"]:checked').value === 'all' || document.querySelector('input[name="mfaPolicy"]:checked').value === 'admins',
-        mfa_remember_days: parseInt(document.getElementById('mfaRememberDays').value),
-        
-        // Session
-        session_timeout_minutes: parseInt(document.getElementById('sessionTimeout').value)
-    };
-    
-    // Send AJAX request to save settings
+    const form = document.getElementById('settingsForm');
+    const inputs = form.querySelectorAll('input, select');
+    const settings = {};
+
+    inputs.forEach(input => {
+        const name = input.name;
+        if (!name) return; // Skip inputs without a name
+
+        let value;
+        if (input.type === 'checkbox') {
+            value = input.checked;
+        } else if (input.type === 'radio') {
+            if (input.checked) {
+                value = input.value;
+            }
+             else {
+                 return; // Skip unchecked radios
+             }
+        } else {
+            value = input.value;
+        }
+
+        // Convert numbers where appropriate
+        if (input.type === 'number') {
+            value = parseInt(value, 10);
+        }
+
+        // Handle password separately - only send if changed
+        if (name === 'smtp_password' && value === '') {
+            // Don't send empty password, means no change
+        } else {
+             settings[name] = value;
+        }
+    });
+
+    // Display settings in debug
+    const debugOutput = document.getElementById('debugOutput');
+    debugOutput.textContent = JSON.stringify(settings, null, 2);
+    document.getElementById('debugSection').style.display = 'block';
+
+    // Send data to backend
     fetch('/admin/settings', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(settings),
     })
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            showToast('Settings saved successfully', 'success');
+            alert('Settings saved successfully!');
+            // Optionally update UI or show success message
         } else {
-            showToast('Error: ' + data.message, 'error');
+            alert('Error saving settings: ' + data.message);
         }
     })
-    .catch(error => {
-        console.error('Error saving settings:', error);
-        showToast('An error occurred while saving settings', 'error');
+    .catch((error) => {
+        console.error('Error:', error);
+        alert('An error occurred while saving settings.');
     });
 }
 
-// Toast notification function
-function showToast(message, type) {
-    const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
-    toast.innerHTML = message;
-    document.body.appendChild(toast);
-    
-    // Show toast
-    setTimeout(() => {
-        toast.classList.add('show');
-    }, 10);
-    
-    // Hide and remove toast after 3 seconds
-    setTimeout(() => {
-        toast.classList.remove('show');
-        setTimeout(() => {
-            toast.remove();
-        }, 300);
-    }, 3000);
+function checkEmailConfig() {
+    const server = document.getElementById('smtpServer').value;
+    const port = document.getElementById('smtpPort').value;
+    const user = document.getElementById('smtpUsername').value;
+    const sender = document.getElementById('emailSenderAddress').value;
+    const testButton = document.getElementById('testEmailButton');
+
+    // Enable test button only if essential fields are filled
+    if (server && port && user && sender) {
+        testButton.disabled = false;
+    } else {
+        testButton.disabled = true;
+    }
 }
 
-// Test email settings
 function testEmailSettings() {
-    const settings = {
-        server: document.getElementById('smtpServer').value,
-        port: parseInt(document.getElementById('smtpPort').value),
-        username: document.getElementById('smtpUsername').value,
-        password: document.getElementById('smtpPassword').value,
-        tls: document.getElementById('enableTLS').checked,
-        testEmail: document.getElementById('adminEmail').value
+    const email = prompt("Enter your email address to receive the test email:");
+    if (!email) return;
+
+    const testButton = document.getElementById('testEmailButton');
+    testButton.disabled = true;
+    testButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Testing...';
+
+    // Fetch current SMTP settings from the form (including potentially unsaved password)
+     const settings = {
+        smtp_server: document.getElementById('smtpServer').value,
+        smtp_port: parseInt(document.getElementById('smtpPort').value, 10),
+        smtp_username: document.getElementById('smtpUsername').value,
+        smtp_password: document.getElementById('smtpPassword').value, // Send current value
+        smtp_use_tls: document.getElementById('smtpTls').checked,
+        email_from_address: document.getElementById('emailSenderAddress').value,
+        email_from_name: document.getElementById('emailSenderName').value,
+        recipient_email: email // Add recipient
     };
 
-    // Send test email
     fetch('/admin/settings/test-email', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify(settings)
+        body: JSON.stringify(settings),
     })
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            showNotification('Test email sent successfully', 'success');
+            alert('Test email sent successfully to ' + email + '! Check your inbox (and spam folder).');
         } else {
-            showNotification('Failed to send test email: ' + data.message, 'error');
+            alert('Failed to send test email: ' + data.message);
         }
     })
-    .catch(error => {
-        console.error('Error testing email:', error);
-        showNotification('An error occurred while testing email settings', 'error');
+    .catch((error) => {
+        console.error('Error:', error);
+        alert('An error occurred while testing email settings.');
+    })
+    .finally(() => {
+        testButton.disabled = false; // Re-enable after check
+        testButton.innerHTML = '<i class="fas fa-paper-plane"></i> Test Email';
+        checkEmailConfig(); // Re-evaluate disabled state based on fields
     });
 }
 
-// Show notification
-function showNotification(message, type) {
-    // Create notification element
-    const notification = document.createElement('div');
-    notification.className = `notification ${type}`;
-    notification.innerHTML = `
-        <span>${message}</span>
-        <button onclick="this.parentElement.remove()">×</button>
-    `;
-    
-    // Add to document
-    document.body.appendChild(notification);
-    
-    // Auto remove after 5 seconds
-    setTimeout(() => {
-        if (notification.parentElement) {
-            notification.remove();
-        }
-    }, 5000);
+function toggleDebug() {
+    const debugSection = document.getElementById('debugSection');
+    debugSection.style.display = debugSection.style.display === 'none' ? 'block' : 'none';
 }
+
+// Initial check for email config on page load
+document.addEventListener('DOMContentLoaded', checkEmailConfig);
+
 </script>
 {% endblock %} 

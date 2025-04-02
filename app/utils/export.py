@@ -2,10 +2,10 @@ import json
 import csv
 import io
 from typing import List, Dict, Any, Optional
-from sqlalchemy.orm import Session, Query
 from datetime import datetime
 import pandas as pd
 from fastapi.responses import StreamingResponse
+from sqlalchemy.orm import Session
 from app.models.login_history import LoginHistory
 from app.models.user import User
 
@@ -154,10 +154,9 @@ def generate_security_report(db: Session, start_date: datetime, end_date: dateti
         headers={"Content-Disposition": f"attachment; filename=security_report_{start_date.strftime('%Y-%m-%d')}_{end_date.strftime('%Y-%m-%d')}.json"}
     )
 
-def fetch_filter_logs(db: Session, filters: Dict[str, Any]) -> Query:
+def fetch_filter_logs(db: Session, filters: Dict[str, Any]) -> List[LoginHistory]:
     """
     Query logs with filters for export
-    Returns a query object that can be further modified by the caller
     """
     query = db.query(LoginHistory)
     
@@ -183,4 +182,4 @@ def fetch_filter_logs(db: Session, filters: Dict[str, Any]) -> Query:
     # Order by timestamp, newest first
     query = query.order_by(LoginHistory.timestamp.desc())
     
-    return query # Return the query object instead of query.all() 
+    return query.all() 

@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Admin Panel{% endblock %}</title>
+    <!-- Local Font Awesome -->
+    <link rel="stylesheet" href="{{ url_for('static', path='fontawesome/css/all.min.css') }}">
+    <!-- Admin CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', path='css/admin.css') }}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <div class="admin-container">
+        <aside class="admin-sidebar">
+            <div class="sidebar-header">
+                <i class="fas fa-shield-alt"></i>
+                <h3>Admin Panel</h3>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="{{ url_for('admin.dashboard') }}" {% if request.endpoint == 'admin.dashboard' %}class="active"{% endif %}>
+                    <i class="fas fa-chart-line"></i>
+                    Dashboard
+                </a>
+                <a href="{{ url_for('admin.users') }}" {% if request.endpoint == 'admin.users' %}class="active"{% endif %}>
+                    <i class="fas fa-users"></i>
+                    Users
+                </a>
+                <a href="{{ url_for('admin.logs') }}" {% if request.endpoint == 'admin.logs' %}class="active"{% endif %}>
+                    <i class="fas fa-history"></i>
+                    Logs
+                </a>
+                <a href="{{ url_for('admin.settings') }}" {% if request.endpoint == 'admin.settings' %}class="active"{% endif %}>
+                    <i class="fas fa-cog"></i>
+                    Settings
+                </a>
+                <a href="{{ url_for('main.index') }}" class="back-to-app">
+                    <i class="fas fa-home"></i>
+                    Back to App
+                </a>
+            </nav>
+        </aside>
+        <main class="admin-main">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+    {% block extra_js %}{% endblock %}
+</body>
+</html> 
