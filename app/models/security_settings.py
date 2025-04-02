@@ -23,6 +23,13 @@ class SecuritySettings(Base):
     session_timeout_minutes = Column(Integer, default=30)
     require_mfa = Column(Boolean, default=False)
     
+    # CAPTCHA settings
+    enable_captcha = Column(Boolean, default=True)
+    captcha_on_login = Column(Boolean, default=True)
+    captcha_on_register = Column(Boolean, default=True)
+    captcha_on_password_reset = Column(Boolean, default=True)
+    captcha_length = Column(Integer, default=6)
+    
     # IP security
     ip_whitelist_enabled = Column(Boolean, default=False)
     ip_blacklist_enabled = Column(Boolean, default=True)

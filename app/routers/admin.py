@@ -4,8 +4,9 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
-from typing import List, Dict, Any, Optional, ceil
-from datetime import datetime, timedelta
+from typing import List, Dict, Any, Optional
+import math  # Import math module for ceil function
+from datetime import datetime, timedelta, time
 
 from app.database.database import get_db
 from app.models.user import User
@@ -19,6 +20,8 @@ from app.routers.auth import get_current_user
 from app.core.security import get_password_hash
 from app.utils.export import export_logs_to_csv, export_logs_to_json, generate_security_report, fetch_filter_logs
 from app.utils.maintenance import create_database_backup, perform_log_cleanup, optimize_database, get_system_health
+from app.schemas.settings import AppSettingsUpdate, EmailTestData
+from app.utils.email import send_test_email
 # Import psutil if available for system stats, handle gracefully if not
 try:
     import psutil
@@ -425,91 +428,149 @@ async def delete_user_account(
 
 # Security settings
 @router.get("/settings", response_class=HTMLResponse)
-async def admin_security_settings(
+async def admin_settings_page(
     request: Request,
     db: Session = Depends(get_db),
     admin_user: User = Depends(get_admin_user)
 ):
-    """Display security settings page"""
-    print(f"DEBUG: Admin settings page requested by {admin_user.email}")
-    
-    # Get current security settings
+    """Display the admin settings page."""
     settings = db.query(SecuritySettings).first()
-    
-    # If no settings exist, create default settings
     if not settings:
-        settings = SecuritySettings()
-        db.add(settings)
-        db.commit()
-        db.refresh(settings)
+        # Handle case where settings are not initialized - maybe create default?
+        # For now, raise an error or return defaults
+        settings = SecuritySettings() # Provide a default empty object for template rendering
+        # Or: raise HTTPException(status_code=500, detail="System settings not initialized.")
     
-    return templates.TemplateResponse(
-        "admin/settings.html",
-        {
-            "request": request,
-            "settings": settings,
-            "admin_user": admin_user
-        }
-    )
+    return templates.TemplateResponse("admin/settings.html", {
+        "request": request,
+        "settings": settings,
+        "admin_user": admin_user
+    })
 
 @router.post("/settings")
-async def update_security_settings(
-    request: Request,
-    settings_update: SecuritySettingsUpdate,
+async def update_admin_settings(
+    updated_settings: AppSettingsUpdate,
     db: Session = Depends(get_db),
     admin_user: User = Depends(get_admin_user)
 ):
-    """Update security settings"""
-    # Get current security settings
+    """Update the application settings."""
     settings = db.query(SecuritySettings).first()
-    
-    # If no settings exist, create new settings
     if not settings:
-        settings = SecuritySettings()
-        db.add(settings)
-    
-    # Update settings
-    update_data = settings_update.dict(exclude_unset=True)
-    for key, value in update_data.items():
-        setattr(settings, key, value)
-    
-    settings.updated_at = datetime.utcnow()
-    settings.last_updated_by = admin_user.email
-    
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+                            detail="System settings record not found.")
+
     try:
+        update_data = updated_settings.dict(exclude_unset=True)
+        
+        for key, value in update_data.items():
+            # Handle specific field name mappings and logic
+            if key == "password_require_digit":
+                setattr(settings, "password_require_digits", value)
+            elif key == "mfa_policy":
+                # Map policy string to the boolean require_mfa in the model
+                setattr(settings, "require_mfa", value in ["admins", "all"])
+            elif key == "account_lockout_threshold":
+                 setattr(settings, "max_login_attempts", value)
+            elif key == "account_lockout_duration_minutes":
+                 setattr(settings, "lockout_duration_minutes", value)
+            elif key == "session_limit_per_user":
+                # Assuming model field might be different, adjust if necessary
+                # If model has session_limit_per_user directly:
+                 setattr(settings, "session_limit_per_user", value) 
+            elif key == "smtp_password":
+                # Only update password if a non-empty value is provided
+                if value is not None and value.strip() != "":
+                    # Ideally, encrypt the password before saving
+                    # For now, storing plain text (NOT RECOMMENDED FOR PRODUCTION)
+                    setattr(settings, key, value)
+                # If value is None or empty, do nothing - keep existing password
+            elif hasattr(settings, key):
+                setattr(settings, key, value)
+            else:
+                 print(f"Warning: Field '{key}' from input not found in SecuritySettings model.")
+
+        # Record who made the change
+        settings.last_updated_by = admin_user.email
+        settings.updated_at = datetime.utcnow() # Explicitly set update time
+
         db.commit()
         db.refresh(settings)
-        # Instead of redirect, return JSON response for fetch request
-        return JSONResponse(content={"success": True, "message": "Settings updated successfully"})
+        return {"success": True, "message": "Settings updated successfully."}
+
     except Exception as e:
         db.rollback()
-        print(f"Error updating security settings: {e}")
-        # Return JSON error response
-        return JSONResponse(
-            status_code=500,
-            content={"success": False, "message": "Failed to update settings"}
+        print(f"Error updating settings: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                            detail=f"An error occurred while updating settings: {str(e)}")
+
+@router.post("/settings/test-email")
+async def test_email_config(
+    email_data: EmailTestData,
+    admin_user: User = Depends(get_admin_user) # Ensure only admin can test
+):
+    """Send a test email using provided SMTP configuration."""
+    try:
+        success = await send_test_email(
+            server=email_data.smtp_server,
+            port=email_data.smtp_port,
+            username=email_data.smtp_username,
+            password=email_data.smtp_password,
+            use_tls=email_data.smtp_use_tls,
+            from_addr=email_data.email_from_address,
+            from_name=email_data.email_from_name,
+            to_addr=email_data.recipient_email
         )
+        if success:
+             return {"success": True, "message": "Test email sent successfully."}
+        else:
+             # The function should raise exceptions on failure, but handle case it returns False
+             return {"success": False, "message": "Failed to send test email. Check logs for details."}
+    except Exception as e:
+        print(f"Error sending test email: {e}")
+        # Return specific error message from the exception if available
+        return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, 
+                          content={"success": False, "message": f"Failed to send test email: {str(e)}"})
 
 # Security logs
 @router.get("/logs", response_class=HTMLResponse)
 async def admin_logs(
     request: Request,
     db: Session = Depends(get_db),
-    page: int = 1,
-    limit: int = 10,
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
-    success: Optional[bool] = None,
-    user_id: Optional[int] = None,
-    ip_address: Optional[str] = None,
+    page: int = Query(1, ge=1), # Use Query for pagination
+    limit: int = Query(10, ge=1, le=100), # Use Query for limits
+    start_date_str: Optional[str] = Query(None, alias="start_date"),
+    end_date_str: Optional[str] = Query(None, alias="end_date"),
+    success: Optional[bool] = Query(None),
+    user_id: Optional[int] = Query(None),
+    ip_address: Optional[str] = Query(None),
     admin_user: User = Depends(get_admin_user)
 ):
     """Display the admin logs page with filtering and pagination."""
+    
+    start_date_dt: Optional[datetime] = None
+    end_date_dt: Optional[datetime] = None
+    
+    # Parse dates with error handling
+    try:
+        if start_date_str:
+            start_date_dt = datetime.fromisoformat(start_date_str)
+        if end_date_str:
+            # Parse the date and set time to end of the day
+            end_date_dt = datetime.combine(
+                datetime.fromisoformat(end_date_str).date(), 
+                time(23, 59, 59, 999999)
+            )
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Invalid date format. Please use YYYY-MM-DD."
+        )
+
     offset = (page - 1) * limit
     
     filters = {
-        'start_date': start_date,
-        'end_date': end_date,
+        'start_date': start_date_dt, # Pass datetime objects
+        'end_date': end_date_dt,   # Pass datetime objects
         'success': success,
         'user_id': user_id,
         'ip_address': ip_address
@@ -521,11 +582,20 @@ async def admin_logs(
     total_items = logs_query.count()
     logs = logs_query.offset(offset).limit(limit).all()
     
-    total_pages = ceil(total_items / limit)
+    total_pages = math.ceil(total_items / limit)
     
     # Fetch all users for the filter dropdown
     all_users = db.query(User.id, User.email).order_by(User.email).all()
     
+    # Prepare filters to pass back to template (use original strings)
+    template_filters = {
+        'start_date': start_date_str,
+        'end_date': end_date_str,
+        'success': success,
+        'user_id': user_id,
+        'ip_address': ip_address
+    }
+
     return templates.TemplateResponse("admin/logs.html", {
         "request": request,
         "logs": logs,
@@ -533,9 +603,9 @@ async def admin_logs(
         "total_pages": total_pages,
         "total_items": total_items,
         "limit": limit,
-        "admin_user": admin_user,  # Pass admin user info
-        "users": all_users, # Pass all users for the filter
-        "filters": filters # Pass current filters back to template
+        "admin_user": admin_user,  
+        "users": all_users, 
+        "filters": template_filters # Pass original filters back for display
     })
 
 # Export routes

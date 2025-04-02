@@ -150,4 +150,81 @@ async def send_mfa_code_email(recipient_email: str, code: str) -> bool:
         subject=subject,
         html_content=html_content,
         text_content=text_content
-    ) 
+    )
+
+async def send_test_email(
+    server: str,
+    port: int,
+    username: str,
+    password: str,
+    use_tls: bool,
+    from_addr: str,
+    from_name: str,
+    to_addr: str
+) -> bool:
+    """
+    Send a test email using the provided SMTP configuration.
+    This function is used by the admin settings test functionality.
+    """
+    logger.info(f"Sending test email from {from_addr} to {to_addr} via {server}:{port}")
+    
+    # Create the email message
+    msg = MIMEMultipart('alternative')
+    msg['Subject'] = "Test Email from Adaptive Login Security System"
+    msg['From'] = f"{from_name} <{from_addr}>"
+    msg['To'] = to_addr
+    
+    # Test email content
+    html_content = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #f7f7f7; border-radius: 5px; padding: 20px; border: 1px solid #ddd;">
+            <h2 style="color: #4f46e5; margin-top: 0;">Email Configuration Test</h2>
+            <p>This is a test email from your Adaptive Login Security System.</p>
+            <p>If you're receiving this email, your SMTP settings are configured correctly.</p>
+            <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;">
+            <p style="font-size: 12px; color: #777;">SMTP Server: {server}:{port}<br>
+            From: {from_addr}<br>
+            TLS: {'Enabled' if use_tls else 'Disabled'}</p>
+        </div>
+    </body>
+    </html>
+    """
+    
+    text_content = f"""
+    Email Configuration Test
+    
+    This is a test email from your Adaptive Login Security System.
+    If you're receiving this email, your SMTP settings are configured correctly.
+    
+    --
+    SMTP Server: {server}:{port}
+    From: {from_addr}
+    TLS: {'Enabled' if use_tls else 'Disabled'}
+    """
+    
+    # Attach parts
+    msg.attach(MIMEText(text_content, 'plain'))
+    msg.attach(MIMEText(html_content, 'html'))
+
+    try:
+        # Connect to SMTP server
+        with smtplib.SMTP(server, port) as smtp:
+            smtp.ehlo()  # Greet server
+            if use_tls:
+                smtp.starttls()  # Enable encryption if TLS is enabled
+                smtp.ehlo()  # Greet again after TLS
+            logger.info(f"Logging into SMTP with user: {username}")
+            if username and password:
+                smtp.login(username, password)
+            logger.info("SMTP login successful.")
+            smtp.send_message(msg)
+            logger.info(f"Test email sent successfully to {to_addr}.")
+        return True
+
+    except smtplib.SMTPAuthenticationError as auth_err:
+        logger.error(f"SMTP Authentication Error: {auth_err}. Check credentials.")
+        raise Exception(f"Authentication failed: {str(auth_err)}")
+    except Exception as e:
+        logger.error(f"Error sending test email: {str(e)}", exc_info=True)
+        raise Exception(f"Failed to send test email: {str(e)}") 

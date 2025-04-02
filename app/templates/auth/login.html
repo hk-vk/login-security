@@ -25,30 +25,6 @@
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }
-
-.captcha-container {
-    margin: 1rem 0;
-    text-align: center;
-}
-
-.captcha-image {
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    margin-bottom: 0.5rem;
-}
-
-.refresh-captcha {
-    background: none;
-    border: none;
-    color: #4F46E5;
-    cursor: pointer;
-    font-size: 0.875rem;
-    padding: 0.25rem 0.5rem;
-}
-
-.refresh-captcha:hover {
-    text-decoration: underline;
-}
 </style>
 {% endblock %}
 
@@ -98,7 +74,7 @@
             </div>
         </div>
 
-        <form method="POST" action="/auth/login{% if admin_redirect %}?next=/admin/dashboard{% endif %}" class="auth-form">
+        <form id="login-form" method="POST" action="/auth/login{% if admin_redirect %}?next=/admin/dashboard{% endif %}" class="auth-form">
             <div class="form-group">
                 <label for="email">Email Address</label>
                 <div class="input-group">
@@ -128,18 +104,9 @@
                 </label>
                 <a href="/auth/forgot-password" class="forgot-link">Forgot Password?</a>
             </div>
-
-            <div class="captcha-container">
-                <img id="captcha-image" class="captcha-image" src="" alt="CAPTCHA">
-                <button type="button" class="refresh-captcha" onclick="refreshCaptcha()">
-                    <i class="fas fa-sync-alt"></i> Refresh CAPTCHA
-                </button>
-                <div class="form-group">
-                    <input type="text" id="captcha" name="captcha" required
-                           placeholder="Enter the code shown above" maxlength="6"
-                           style="text-align: center; letter-spacing: 2px; font-size: 1.2rem;">
-                </div>
-            </div>
+            
+            <!-- CAPTCHA Container -->
+            <div id="login-captcha" class="captcha-container" data-captcha data-captcha-form="login-form" data-captcha-length="6"></div>
 
             <button type="submit" class="btn-primary">Sign In</button>
             
@@ -258,21 +225,10 @@ function checkGeolocation() {
     }
 }
 
-// Captcha handling
-function refreshCaptcha() {
-    fetch('/auth/captcha')
-        .then(response => response.json())
-        .then(data => {
-            document.getElementById('captcha-image').src = data.image;
-        })
-        .catch(error => console.error('Error refreshing captcha:', error));
-}
-
 // Initialize security features
 document.addEventListener('DOMContentLoaded', function() {
     generateFingerprint();
     checkGeolocation();
-    refreshCaptcha(); // Load initial captcha
 });
 </script>
 {% endblock %} 

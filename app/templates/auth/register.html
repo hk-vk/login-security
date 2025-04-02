@@ -16,7 +16,7 @@
         </div>
         {% endif %}
 
-        <form method="POST" action="/auth/register" class="auth-form">
+        <form id="register-form" method="POST" action="/auth/register" class="auth-form">
             <div class="form-group">
                 <label for="email">Email Address</label>
                 <div class="input-group">
@@ -103,6 +103,9 @@
                     Email verification will be required each time you log in
                 </div>
             </div>
+
+            <!-- CAPTCHA Container -->
+            <div id="register-captcha" class="captcha-container" data-captcha data-captcha-form="register-form" data-captcha-length="6"></div>
 
             <button type="submit" class="btn-primary">Create Account</button>
         </form>
