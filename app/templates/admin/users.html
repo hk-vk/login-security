@@ -35,479 +35,299 @@
     background: rgba(0,0,0,0.7);
 }
 
-/* Users page specific styles */
-.users-filters {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 15px;
-    margin-bottom: 20px;
-    background: white;
-    padding: 15px;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-}
-
-.search-box {
-    flex: 1;
-    position: relative;
-    min-width: 200px;
-}
-
-.search-box i {
-    position: absolute;
-    left: 12px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: #64748b;
-}
-
-.search-box input {
-    width: 100%;
-    padding: 10px 10px 10px 35px;
-    border: 1px solid #e2e8f0;
-    border-radius: 4px;
-    font-size: 14px;
-}
-
-.filter-group {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-}
-
-.filter-group select {
-    min-width: 120px;
-    padding: 8px 12px;
-    border: 1px solid #e2e8f0;
-    border-radius: 4px;
-    font-size: 14px;
-    color: #1e293b;
-    background-color: white;
-}
-
-.users-table-container {
-    background-color: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    overflow: hidden;
-    margin-bottom: 20px;
-}
-
-.users-table {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-.users-table th, .users-table td {
-    padding: 12px 16px;
-    text-align: left;
-    border-bottom: 1px solid #e2e8f0;
-}
-
-.users-table th {
-    background-color: #f8fafc;
-    font-weight: 600;
-    color: #64748b;
-    font-size: 14px;
-}
-
-.users-table tbody tr:hover {
-    background-color: #f1f5f9;
-}
-
-.avatar-placeholder {
-    width: 32px;
-    height: 32px;
-    background-color: #e2e8f0;
-    color: #64748b;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 600;
-    margin-right: 8px;
-}
-
+/* User info specific styling */
 .user-info {
     display: flex;
     align-items: center;
-}
-
-.badge {
-    display: inline-flex;
-    align-items: center;
-    padding: 4px 8px;
-    border-radius: 9999px;
-    font-size: 12px;
-    font-weight: 500;
-}
-
-.badge i {
-    margin-right: 4px;
-}
-
-.role-admin {
-    background-color: #fee2e2;
-    color: #ef4444;
-}
-
-.role-user {
-    background-color: #dbeafe;
-    color: #3b82f6;
-}
-
-.status-active {
-    background-color: #dcfce7;
-    color: #10b981;
-}
-
-.status-inactive {
-    background-color: #f3f4f6;
-    color: #9ca3af;
-}
-
-.status-locked {
-    background-color: #fef9c3;
-    color: #eab308;
 }
 
 .action-buttons {
     display: flex;
     gap: 8px;
 }
-
-.btn-icon {
-    width: 32px;
-    height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: none;
-    border: none;
-    border-radius: 4px;
-    color: #64748b;
-    cursor: pointer;
-}
-
-.btn-icon:hover {
-    background-color: #f1f5f9;
-    color: #1e293b;
-}
-
-.btn-icon.edit:hover {
-    color: #3b82f6;
-}
-
-.btn-icon.delete:hover {
-    color: #ef4444;
-}
-
-.table-footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 16px;
-    background-color: #f8fafc;
-}
-
-.entries-info {
-    font-size: 14px;
-    color: #64748b;
-}
-
-.pagination {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.page-numbers {
-    display: flex;
-    gap: 5px;
-}
-
-.page-numbers button {
-    width: 32px;
-    height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background-color: #f1f5f9;
-    border: none;
-    border-radius: 4px;
-    color: #64748b;
-    font-size: 14px;
-}
-
-.page-numbers button.active {
-    background-color: #3b82f6;
-    color: white;
-}
-
-.modal {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: rgba(0, 0, 0, 0.5);
-    z-index: 1000;
-    align-items: center;
-    justify-content: center;
-}
-
-.modal-content {
-    background-color: white;
-    border-radius: 8px;
-    width: 90%;
-    max-width: 600px;
-    max-height: 80vh;
-    overflow-y: auto;
-}
-
-.modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 16px 24px;
-    border-bottom: 1px solid #e2e8f0;
-}
-
-.modal-header h3 {
-    margin: 0;
-    font-size: 18px;
-    font-weight: 600;
-}
-
-.modal-body {
-    padding: 24px;
-}
-
-.form-group {
-    margin-bottom: 16px;
-}
-
-.form-group label {
-    display: block;
-    margin-bottom: 8px;
-    font-weight: 500;
-}
-
-.form-group input,
-.form-group select {
-    width: 100%;
-    padding: 8px 12px;
-    border: 1px solid #e2e8f0;
-    border-radius: 4px;
-    font-size: 14px;
-}
-
-.checkbox-group {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.checkbox-label {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    cursor: pointer;
-}
-
-.modal-footer {
-    display: flex;
-    justify-content: flex-end;
-    gap: 12px;
-    padding: 16px 24px;
-    border-top: 1px solid #e2e8f0;
-}
-
-.btn-cancel {
-    padding: 8px 16px;
-    background-color: #f1f5f9;
-    border: none;
-    border-radius: 4px;
-    font-size: 14px;
-    color: #64748b;
-    cursor: pointer;
-}
-
-.btn-cancel:hover {
-    background-color: #e2e8f0;
-}
-
-.btn-danger {
-    padding: 8px 16px;
-    background-color: #ef4444;
-    border: none;
-    border-radius: 4px;
-    font-size: 14px;
-    color: white;
-    cursor: pointer;
-}
-
-.btn-danger:hover {
-    background-color: #dc2626;
-}
-
-.btn-primary {
-    padding: 8px 16px;
-    background-color: #3b82f6;
-    border: none;
-    border-radius: 4px;
-    font-size: 14px;
-    color: white;
-    cursor: pointer;
-}
-
-.btn-primary:hover {
-    background-color: #2563eb;
-}
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid px-4">
-    <h1 class="mt-4">User Management</h1>
-    
-    <!-- Search Form -->
-    <div class="card mb-4">
-        <div class="card-body">
-            <form method="GET" action="/admin/users" class="row g-3 align-items-center">
-                <div class="col-auto">
-                    <input type="text" class="form-control" name="search" value="{{ search or '' }}" placeholder="Search users...">
-                </div>
-                <div class="col-auto">
-                    <button type="submit" class="btn btn-primary">Search</button>
-                </div>
-            </form>
+<div class="admin-container">
+    <!-- Admin Sidebar -->
+    <div class="admin-sidebar">
+        <div class="sidebar-header">
+            <i class="fas fa-shield-alt"></i>
+            <h3>Admin Panel</h3>
+        </div>
+        <div class="sidebar-nav">
+            <a href="/admin/dashboard" class="{{ 'active' if request.url.path == '/admin/dashboard' else '' }}">
+                <i class="fas fa-tachometer-alt"></i> Dashboard
+            </a>
+            <a href="/admin/users" class="{{ 'active' if request.url.path == '/admin/users' else '' }}">
+                <i class="fas fa-users"></i> Users
+            </a>
+            <a href="/admin/logs" class="{{ 'active' if request.url.path == '/admin/logs' else '' }}">
+                <i class="fas fa-list"></i> Logs
+            </a>
+            <a href="/admin/security" class="{{ 'active' if request.url.path == '/admin/security' else '' }}">
+                <i class="fas fa-lock"></i> Security
+            </a>
+            <a href="/admin/settings" class="{{ 'active' if request.url.path == '/admin/settings' else '' }}">
+                <i class="fas fa-cog"></i> Settings
+            </a>
+            <a href="/dashboard">
+                <i class="fas fa-arrow-left"></i> Back to App
+            </a>
         </div>
     </div>
 
-    <!-- Users Table -->
-    <div class="card mb-4">
-        <div class="card-header">
-            <i class="fas fa-table me-1"></i>
-            Users
-            <span class="float-end">Total: {{ total_items }}</span>
-        </div>
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-striped">
-                    <thead>
-                        <tr>
-                            <th>Email</th>
-                            <th>Name</th>
-                            <th>Status</th>
-                            <th>Role</th>
-                            <th>Last Login</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for user in users %}
-                        <tr>
-                            <td>{{ user.email }}</td>
-                            <td>{{ user.first_name }} {{ user.last_name }}</td>
-                            <td>
-                                {% if user.is_active %}
-                                <span class="badge bg-success">Active</span>
-                                {% else %}
-                                <span class="badge bg-danger">Inactive</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% if user.is_superuser %}
-                                <span class="badge bg-primary">Admin</span>
-                                {% else %}
-                                <span class="badge bg-secondary">User</span>
-                                {% endif %}
-                            </td>
-                            <td>{{ user.last_login or 'Never' }}</td>
-                            <td>
-                                <button class="btn btn-sm btn-primary" onclick="editUser('{{ user.id }}')">Edit</button>
-                                {% if user.id != admin_user.id %}
-                                <button class="btn btn-sm btn-danger" onclick="deleteUser('{{ user.id }}')">Delete</button>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+    <!-- Main Content -->
+    <div class="admin-main">
+        <!-- Header -->
+        <div class="admin-header">
+            <h2>User Management</h2>
+            <div class="header-actions">
+                <button class="btn-primary" onclick="document.getElementById('addUserModal').style.display='flex'">
+                    <i class="fas fa-plus"></i> Add User
+                </button>
             </div>
+        </div>
+
+        <!-- Search & Filters -->
+        <div class="users-filters">
+            <div class="search-box">
+                <i class="fas fa-search"></i>
+                <input type="text" id="searchInput" placeholder="Search users..." 
+                       value="{{ search or '' }}" onkeyup="if(event.key==='Enter') searchUsers()">
+            </div>
+            <div class="filter-group">
+                <select id="statusFilter" onchange="searchUsers()">
+                    <option value="">All Status</option>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                </select>
+                <select id="roleFilter" onchange="searchUsers()">
+                    <option value="">All Roles</option>
+                    <option value="admin">Admin</option>
+                    <option value="user">User</option>
+                </select>
+            </div>
+            <button class="btn-secondary" onclick="resetFilters()">
+                <i class="fas fa-redo"></i> Reset
+            </button>
+        </div>
+
+        <!-- Users Table -->
+        <div class="users-table-container">
+            <table class="users-table">
+                <thead>
+                    <tr>
+                        <th>Email</th>
+                        <th>Name</th>
+                        <th>Status</th>
+                        <th>Role</th>
+                        <th>Last Login</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr>
+                        <td>
+                            <div class="user-info">
+                                <div class="avatar-placeholder">
+                                    {{ user.email[0] | upper }}
+                                </div>
+                                <span>{{ user.email }}</span>
+                            </div>
+                        </td>
+                        <td>{{ user.first_name }} {{ user.last_name }}</td>
+                        <td>
+                            {% if user.is_active %}
+                            <span class="badge severity-info">
+                                <i class="fas fa-check-circle"></i>Active
+                            </span>
+                            {% else %}
+                            <span class="badge severity-error">
+                                <i class="fas fa-times-circle"></i>Inactive
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if user.is_superuser %}
+                            <span class="badge event-auth">
+                                <i class="fas fa-shield-alt"></i>Admin
+                            </span>
+                            {% else %}
+                            <span class="badge event-user">
+                                <i class="fas fa-user"></i>User
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td>{{ user.last_login or 'Never' }}</td>
+                        <td>
+                            <div class="action-buttons">
+                                <button class="btn-icon" onclick="editUser('{{ user.id }}')">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                {% if user.id != admin_user.id %}
+                                <button class="btn-icon delete" onclick="deleteUser('{{ user.id }}')">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
 
             <!-- Pagination -->
             {% if total_pages > 1 %}
-            <nav aria-label="Page navigation">
-                <ul class="pagination justify-content-center">
-                    <li class="page-item {% if current_page == 1 %}disabled{% endif %}">
-                        <a class="page-link" href="?page={{ current_page - 1 }}{% if search %}&search={{ search }}{% endif %}" tabindex="-1">Previous</a>
-                    </li>
-                    
-                    {% for p in range(1, total_pages + 1) %}
-                        <li class="page-item {% if p == current_page %}active{% endif %}">
-                            <a class="page-link" href="?page={{ p }}{% if search %}&search={{ search }}{% endif %}">{{ p }}</a>
-                        </li>
-                    {% endfor %}
-                    
-                    <li class="page-item {% if current_page == total_pages %}disabled{% endif %}">
-                        <a class="page-link" href="?page={{ current_page + 1 }}{% if search %}&search={{ search }}{% endif %}">Next</a>
-                    </li>
-                </ul>
-            </nav>
+            <div class="table-footer">
+                <div class="entries-info">
+                    Showing <span>{{ (current_page - 1) * 10 + 1 }}</span> to <span>{{ [current_page * 10, total_items] | min }}</span> of <span>{{ total_items }}</span> users
+                </div>
+                <div class="pagination">
+                    <button class="btn-icon" onclick="window.location.href='?page={{ current_page - 1 }}{% if search %}&search={{ search }}{% endif %}'" {% if current_page <= 1 %}disabled{% endif %}>
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <div class="page-numbers">
+                        {% for p in range(1, total_pages + 1) %}
+                            {% if p == current_page %}
+                                <button class="active">{{ p }}</button>
+                            {% elif p <= 3 or p == total_pages or p >= current_page - 1 and p <= current_page + 1 %}
+                                <button onclick="window.location.href='?page={{ p }}{% if search %}&search={{ search }}{% endif %}'">{{ p }}</button>
+                            {% elif p == 4 and total_pages > 6 %}
+                                <span>...</span>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                    <button class="btn-icon" onclick="window.location.href='?page={{ current_page + 1 }}{% if search %}&search={{ search }}{% endif %}'" {% if current_page >= total_pages %}disabled{% endif %}>
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
             {% endif %}
         </div>
     </div>
 </div>
 
 <!-- Edit User Modal -->
-<div class="modal fade" id="editUserModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Edit User</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <form id="editUserForm">
-                    <input type="hidden" id="userId">
-                    <div class="mb-3">
-                        <label class="form-label">Email</label>
-                        <input type="email" class="form-control" id="userEmail" required>
+<div class="modal" id="editUserModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Edit User</h3>
+            <button type="button" class="btn-icon" onclick="closeModal('editUserModal')">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <form id="editUserForm">
+                <input type="hidden" id="userId">
+                <div class="detail-group">
+                    <label>Email</label>
+                    <input type="email" id="userEmail" required>
+                </div>
+                <div class="detail-group">
+                    <label>First Name</label>
+                    <input type="text" id="userFirstName">
+                </div>
+                <div class="detail-group">
+                    <label>Last Name</label>
+                    <input type="text" id="userLastName">
+                </div>
+                <div class="detail-group">
+                    <div class="checkbox-wrapper">
+                        <input type="checkbox" id="userActive">
+                        <label for="userActive">Active</label>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">First Name</label>
-                        <input type="text" class="form-control" id="userFirstName">
+                </div>
+                <div class="detail-group">
+                    <div class="checkbox-wrapper">
+                        <input type="checkbox" id="userAdmin">
+                        <label for="userAdmin">Admin</label>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Last Name</label>
-                        <input type="text" class="form-control" id="userLastName">
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-secondary" onclick="closeModal('editUserModal')">Cancel</button>
+            <button type="button" class="btn-primary" onclick="saveUser()">Save Changes</button>
+        </div>
+    </div>
+</div>
+
+<!-- Add User Modal -->
+<div class="modal" id="addUserModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Add New User</h3>
+            <button type="button" class="btn-icon" onclick="closeModal('addUserModal')">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <form id="addUserForm">
+                <div class="detail-group">
+                    <label>Email</label>
+                    <input type="email" id="newUserEmail" required>
+                </div>
+                <div class="detail-group">
+                    <label>Password</label>
+                    <input type="password" id="newUserPassword" required>
+                </div>
+                <div class="detail-group">
+                    <label>First Name</label>
+                    <input type="text" id="newUserFirstName">
+                </div>
+                <div class="detail-group">
+                    <label>Last Name</label>
+                    <input type="text" id="newUserLastName">
+                </div>
+                <div class="detail-group">
+                    <div class="checkbox-wrapper">
+                        <input type="checkbox" id="newUserActive" checked>
+                        <label for="newUserActive">Active</label>
                     </div>
-                    <div class="mb-3">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="userActive">
-                            <label class="form-check-label">Active</label>
-                        </div>
+                </div>
+                <div class="detail-group">
+                    <div class="checkbox-wrapper">
+                        <input type="checkbox" id="newUserAdmin">
+                        <label for="newUserAdmin">Admin</label>
                     </div>
-                    <div class="mb-3">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="userAdmin">
-                            <label class="form-check-label">Admin</label>
-                        </div>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                <button type="button" class="btn btn-primary" onclick="saveUser()">Save changes</button>
-            </div>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-secondary" onclick="closeModal('addUserModal')">Cancel</button>
+            <button type="button" class="btn-primary" onclick="addUser()">Add User</button>
         </div>
     </div>
 </div>
 
 <script>
+function closeModal(modalId) {
+    document.getElementById(modalId).style.display = 'none';
+}
+
+function searchUsers() {
+    let searchValue = document.getElementById('searchInput').value;
+    let statusFilter = document.getElementById('statusFilter').value;
+    let roleFilter = document.getElementById('roleFilter').value;
+    
+    let url = '/admin/users?';
+    if (searchValue) url += `search=${encodeURIComponent(searchValue)}&`;
+    if (statusFilter) url += `status=${encodeURIComponent(statusFilter)}&`;
+    if (roleFilter) url += `role=${encodeURIComponent(roleFilter)}&`;
+    
+    window.location.href = url;
+}
+
+function resetFilters() {
+    document.getElementById('searchInput').value = '';
+    document.getElementById('statusFilter').value = '';
+    document.getElementById('roleFilter').value = '';
+    window.location.href = '/admin/users';
+}
+
 function editUser(userId) {
     // Fetch user data and populate modal
     fetch(`/admin/users/${userId}`)
@@ -526,8 +346,7 @@ function editUser(userId) {
             document.getElementById('userAdmin').checked = user.is_superuser;
             
             // Show modal
-            var myModal = new bootstrap.Modal(document.getElementById('editUserModal'));
-            myModal.show();
+            document.getElementById('editUserModal').style.display = 'flex';
         })
         .catch(error => {
             console.error('Error fetching user:', error);
@@ -570,6 +389,44 @@ function saveUser() {
     .catch(error => {
         console.error('Error:', error);
         alert('Error updating user: ' + error.message);
+    });
+}
+
+function addUser() {
+    const data = {
+        email: document.getElementById('newUserEmail').value,
+        password: document.getElementById('newUserPassword').value,
+        first_name: document.getElementById('newUserFirstName').value,
+        last_name: document.getElementById('newUserLastName').value,
+        is_active: document.getElementById('newUserActive').checked,
+        is_superuser: document.getElementById('newUserAdmin').checked
+    };
+
+    fetch(`/admin/users`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(errData => {
+                throw new Error(errData.detail || `HTTP error! Status: ${response.status}`);
+            });
+        }
+        return response.json();
+    })
+    .then(result => {
+        if (result.success) {
+            location.reload();
+        } else {
+            alert('Failed to add user: ' + result.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error adding user: ' + error.message);
     });
 }
 
